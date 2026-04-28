@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iPhone SMS Simulation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="topnav" id="myTopnav">
+        <a href="index.html" class="active">Home</a>
+        <a href="template.html">Templates</a>
+        <a href="#contact">Contact</a>
+        <a href="#about">About</a>
+        <a href="javascript:void(0);" class="icon" onclick="myFunction()">
+            <i class="fa fa-bars"></i>
+        </a>
+    </div>
+
+    <div class="container">
+        <div class="iphone">
+            <div class="header">
+                <span>Inbox</span>
+            </div>
+            <div class="inbox" id="inbox">
+                <div class="message">
+                    <div class="profile-pic circle-teal">A</div>
+                    <div class="message-content">
+                        <span class="sender">Sender</span>
+                        <span class="time">9:41 AM</span>
+                        <p>Eg:You are the girl I will die for. If I were to rate you on a scale of 1 to 10, you would be an 11. - From Nuhu Tahiru</p>
+                    </div>
+                </div>
+                <!-- Add more messages as needed -->
+            </div>
+        </div>
+
+        <div class="inputs">
+            <textarea id="Message1" placeholder="Enter your SMS"></textarea>
+            <select id="senderName">
+                <option value="Choose Sender">Choose Sender</option>
+                <option value="Eid Salam">Eid Salam</option>
+                <option value="EidGreeting">EidGreeting</option>
+                <option value="GoodMorning">GoodMorning</option>
+                <option value="CONGRATE">CONGRATE</option>
+                <option value="I LOVE YOU">I LOVE YOU</option>
+                <option value="FATHERS DAY">FATHERS DAY</option>
+                <option value="Birthday">Birthday</option>
+                <option value="Happy Day">Happy Day</option>
+                <option value="EnjoyUrDay">EnjoyUrDay</option>
+                <option value="Mothers Day">Mothers Day</option>
+            </select>
+            <input type="text" id="recipientName" placeholder="Enter Recipient Name" />
+            <input type="number" id="recipientPhone" placeholder="Enter Recipient Phone Number" />
+            <button class="button" onclick="sendSMS()">Send</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        function myFunction() {
+            var x = document.getElementById("myTopnav");
+            if (x.className === "topnav") {
+                x.className += " responsive";
+            } else {
+                x.className = "topnav";
+            }
+        }
+    </script>
+</body>
+</html>
