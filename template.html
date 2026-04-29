@@ -11,8 +11,11 @@
     <div class="topnav" id="myTopnav">
         <a href="index.html">Home</a>
         <a href="template.html" class="active">Templates</a>
+        <a href="index.html?mode=free" id="freeLink">FREE</a>
+        <a class="whatsapp" href="https://chat.whatsapp.com/PASTE_INVITE_CODE_HERE" target="_blank" rel="noopener">WhatsApp</a>
         <a href="#contact">Contact</a>
         <a href="#about">About</a>
+        <a href="javascript:void(0);" id="logoutLink" style="display:none;" onclick="logout()">Logout</a>
         <a href="javascript:void(0);" class="icon" onclick="myFunction()">
             <i class="fa fa-bars"></i>
         </a>
@@ -28,11 +31,10 @@
                     </div>
                     <div class="flip-box-back">
                         <h4>Words can't express how grateful I am for your endless love and support.</h4>
-                        <button class="use-template-button" onclick="useTemplate('Words can\'t express how grateful I am for your endless love and support.')">Use Template</button>
+                        <button class="use-template-button" onclick="useTemplate('Words can\\'t express how grateful I am for your endless love and support.')">Use Template</button>
                     </div>
                 </div>
             </div>
-            <!-- Add more flip-boxes as needed -->
             <div class="flip-box">
                 <div class="flip-box-inner">
                     <div class="flip-box-front">
@@ -45,6 +47,10 @@
                 </div>
             </div>
         </div>
+
+        <h2>Saved Templates</h2>
+        <div id="templateStatus"></div>
+        <div class="templates" id="dynamicTemplates"></div>
     </div>
 
     <script src="script.js"></script>

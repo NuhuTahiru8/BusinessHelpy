@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iPhone SMS Simulation</title>
+    <title>Business SMS</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -11,8 +11,11 @@
     <div class="topnav" id="myTopnav">
         <a href="index.html" class="active">Home</a>
         <a href="template.html">Templates</a>
+        <a href="index.html?mode=free" id="freeLink">FREE</a>
+        <a class="whatsapp" href="https://chat.whatsapp.com/PASTE_INVITE_CODE_HERE" target="_blank" rel="noopener">WhatsApp</a>
         <a href="#contact">Contact</a>
         <a href="#about">About</a>
+        <a href="javascript:void(0);" id="logoutLink" style="display:none;" onclick="logout()">Logout</a>
         <a href="javascript:void(0);" class="icon" onclick="myFunction()">
             <i class="fa fa-bars"></i>
         </a>
@@ -21,13 +24,13 @@
     <div class="container">
         <div class="iphone">
             <div class="header">
-                <span>Inbox</span>
+                <span id="brandHeader">Inbox</span>
             </div>
             <div class="inbox" id="inbox">
                 <div class="message">
                     <div class="profile-pic circle-teal">A</div>
                     <div class="message-content">
-                        <span class="sender">Sender</span>
+                        <span class="sender" id="previewSender">Sender</span>
                         <span class="time">9:41 AM</span>
                         <p>Eg:You are the girl I will die for. If I were to rate you on a scale of 1 to 10, you would be an 11. - From Nuhu Tahiru</p>
                     </div>
@@ -37,23 +40,52 @@
         </div>
 
         <div class="inputs">
-            <textarea id="Message1" placeholder="Enter your SMS"></textarea>
-            <select id="senderName">
-                <option value="Choose Sender">Choose Sender</option>
-                <option value="Eid Salam">Eid Salam</option>
-                <option value="EidGreeting">EidGreeting</option>
-                <option value="GoodMorning">GoodMorning</option>
-                <option value="CONGRATE">CONGRATE</option>
-                <option value="I LOVE YOU">I LOVE YOU</option>
-                <option value="FATHERS DAY">FATHERS DAY</option>
-                <option value="Birthday">Birthday</option>
-                <option value="Happy Day">Happy Day</option>
-                <option value="EnjoyUrDay">EnjoyUrDay</option>
-                <option value="Mothers Day">Mothers Day</option>
-            </select>
-            <input type="text" id="recipientName" placeholder="Enter Recipient Name" />
-            <input type="number" id="recipientPhone" placeholder="Enter Recipient Phone Number" />
-            <button class="button" onclick="sendSMS()">Send</button>
+            <div id="loginBox">
+                <input type="text" id="loginUsername" placeholder="Username" autocomplete="username" />
+                <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" />
+                <button class="button" onclick="login()">Login</button>
+            </div>
+
+            <div id="smsBox" style="display:none;">
+                <input type="text" id="fixedBrand" placeholder="Brandname" disabled />
+                <textarea id="Message1" data-max-height="180" placeholder="Write your SMS"></textarea>
+                <textarea id="recipientPhone" data-max-height="120" placeholder="Customer Phone Number(s) (e.g. 233XXXXXXXXX, 233XXXXXXXXX)"></textarea>
+                <button class="button" id="sendBtn" onclick="sendSMS()">Send</button>
+                <div id="statusBox" aria-live="polite"></div>
+                <div id="adminBox" style="display:none;">
+                    <div class="admin-title">Admin Dashboard</div>
+                    <div class="admin-card">
+                        <div class="admin-subtitle">Create Account</div>
+                        <input type="text" id="newUsername" placeholder="Username (e.g. company1)" autocomplete="off" />
+                        <input type="text" id="newBrandname" placeholder="Brandname (Sender ID)" autocomplete="off" />
+                        <input type="password" id="newPassword" placeholder="Password" autocomplete="new-password" />
+                        <button class="button" id="createUserBtn" onclick="createUser()">Create Account</button>
+                    </div>
+                    <div class="admin-card">
+                        <div class="admin-subtitle">Accounts</div>
+                        <div id="usersList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="freeBox" style="display:none;">
+                <select id="freeSender">
+                    <option value="Mothers Day">Mothers Day</option>
+                    <option value="EnjoyUrDay">EnjoyUrDay</option>
+                    <option value="Happy Day">Happy Day</option>
+                    <option value="Birthday">Birthday</option>
+                    <option value="FATHERS">FATHERS</option>
+                    <option value="I LOVE YOU DAY">I LOVE YOU DAY</option>
+                    <option value="CONGRATE">CONGRATE</option>
+                    <option value="GoodMorning">GoodMorning</option>
+                    <option value="EidGreeting">EidGreeting</option>
+                    <option value="Eid Salam">Eid Salam</option>
+                </select>
+                <textarea id="freeMessage" data-max-height="180" placeholder="Write your FREE SMS"></textarea>
+                <textarea id="freeRecipientPhone" data-max-height="120" placeholder="Customer Phone Number(s) (e.g. 233XXXXXXXXX, 233XXXXXXXXX)"></textarea>
+                <button class="button" id="freeSendBtn" onclick="sendFreeSMS()">Send FREE</button>
+                <div id="freeStatusBox" aria-live="polite"></div>
+            </div>
         </div>
     </div>
 
