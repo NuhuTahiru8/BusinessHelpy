@@ -90,6 +90,19 @@ def is_valid_brandname(brandname: str):
     return True
 
 
+def normalize_phone_number(raw: str):
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    for ch in (" ", "-", "(", ")", "\t"):
+        s = s.replace(ch, "")
+    if s.startswith("+"):
+        s = s[1:]
+    if s.startswith("0") and len(s) == 10 and s.isdigit():
+        s = "233" + s[1:]
+    return s
+
+
 def hash_password(password: str, salt_hex: Optional[str] = None):
     if salt_hex:
         salt = bytes.fromhex(salt_hex)
@@ -698,18 +711,16 @@ class Handler(BaseHTTPRequestHandler):
             if not message or not recipient_raw:
                 return self.send_json(400, {"status": "error", "message": "Please fill in all fields"})
 
-            recipients = [r for r in recipient_raw.replace(",", " ").split() if r.strip()]
-            if not recipients:
+            recipient_parts = [r for r in recipient_raw.replace(",", " ").split() if r.strip()]
+            if not recipient_parts:
                 return self.send_json(400, {"status": "error", "message": "Invalid phone number"})
 
-            for r in recipients:
-                ok = False
-                if r.isdigit() and 8 <= len(r) <= 15:
-                    ok = True
-                if r.startswith("+") and r[1:].isdigit() and 9 <= len(r) <= 16:
-                    ok = True
-                if not ok:
+            recipients = []
+            for r in recipient_parts:
+                n = normalize_phone_number(r)
+                if not (n.isdigit() and 8 <= len(n) <= 15):
                     return self.send_json(400, {"status": "error", "message": "Invalid phone number format"})
+                recipients.append(n)
 
             api_key = os.environ.get("ARKESEL_API_KEY")
             if not api_key:
@@ -738,6 +749,8 @@ class Handler(BaseHTTPRequestHandler):
                         body = e.read().decode("utf-8", errors="replace")
                     except Exception:
                         body = ""
+                    if getattr(e, "code", None) == 422 and not body:
+                        body = "Arkesel rejected the request. Check Sender ID and use country code numbers like 233XXXXXXXXX."
                     detail = f"HTTPError {getattr(e, 'code', '')} {getattr(e, 'reason', '')}: {body[:800]}"
                     print(f"Arkesel send-sms-free failed for to={to}: {detail}")
                     return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail, "raw_response": body[:800]})
@@ -804,18 +817,16 @@ class Handler(BaseHTTPRequestHandler):
             if not message or not recipient_raw:
                 return self.send_json(400, {"status": "error", "message": "Please fill in all fields"})
 
-            recipients = [r for r in recipient_raw.replace(",", " ").split() if r.strip()]
-            if not recipients:
+            recipient_parts = [r for r in recipient_raw.replace(",", " ").split() if r.strip()]
+            if not recipient_parts:
                 return self.send_json(400, {"status": "error", "message": "Invalid phone number"})
 
-            for r in recipients:
-                ok = False
-                if r.isdigit() and 8 <= len(r) <= 15:
-                    ok = True
-                if r.startswith("+") and r[1:].isdigit() and 9 <= len(r) <= 16:
-                    ok = True
-                if not ok:
+            recipients = []
+            for r in recipient_parts:
+                n = normalize_phone_number(r)
+                if not (n.isdigit() and 8 <= len(n) <= 15):
                     return self.send_json(400, {"status": "error", "message": "Invalid phone number format"})
+                recipients.append(n)
 
             api_key = os.environ.get("ARKESEL_API_KEY")
             if not api_key:
@@ -847,6 +858,8 @@ class Handler(BaseHTTPRequestHandler):
                         body = e.read().decode("utf-8", errors="replace")
                     except Exception:
                         body = ""
+                    if getattr(e, "code", None) == 422 and not body:
+                        body = "Arkesel rejected the request. Check Sender ID and use country code numbers like 233XXXXXXXXX."
                     detail = f"HTTPError {getattr(e, 'code', '')} {getattr(e, 'reason', '')}: {body[:800]}"
                     print(f"Arkesel send-sms failed for to={to}: {detail}")
                     return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail, "raw_response": body[:800]})

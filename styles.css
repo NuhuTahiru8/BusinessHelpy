@@ -228,6 +228,83 @@ textarea {
     overflow-wrap: anywhere;
 }
 
+.admin-title {
+    margin-top: 14px;
+    font-weight: 800;
+    font-size: 16px;
+}
+
+.admin-card {
+    width: 100%;
+    margin-top: 10px;
+    border-radius: 20px;
+    padding: 12px;
+    box-sizing: border-box;
+    border: 1px solid #ddd;
+    background: #f9f9f9;
+}
+
+.admin-subtitle {
+    font-weight: 700;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+#usersList {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.user-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 20px;
+    border: 1px solid #ddd;
+    background: #ffffff;
+}
+
+.user-row .u1 {
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.user-row .u2 {
+    font-size: 13px;
+    color: #555;
+    overflow-wrap: anywhere;
+}
+
+.user-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.mini-button {
+    padding: 10px 14px;
+    background-color: hotpink;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.mini-button:hover {
+    background-color: #039c5d;
+}
+
+.mini-button.danger {
+    background-color: #dc2626;
+}
+
+.mini-button.danger:hover {
+    background-color: #b91c1c;
+}
+
 /* Button styles */
 .button {
     padding: 15px 25px;
