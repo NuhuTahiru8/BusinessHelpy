@@ -1,5 +1,14 @@
 var DEFAULT_PREVIEW_MESSAGE = "Eg:You are the girl I will die for. If I were to rate you on a scale of 1 to 10, you would be an 11. - From Nuhu Tahiru";
 
+function escapeHtml(str) {
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 function fetchJson(url, options) {
     return fetch(url, options).then(function(response) {
         return response.text().then(function(text) {
@@ -19,7 +28,10 @@ function fetchJson(url, options) {
                     throw new Error('Server error. Backend is not running. Response: ' + text.slice(0, 200));
                 }
                 if (parsed && (parsed.message || parsed.error)) {
-                    throw new Error((parsed.message || parsed.error) + ' (HTTP ' + response.status + ')');
+                    var extra = '';
+                    if (parsed.detail) extra += ' | ' + parsed.detail;
+                    if (parsed.raw_response) extra += ' | ' + parsed.raw_response;
+                    throw new Error((parsed.message || parsed.error) + extra + ' (HTTP ' + response.status + ')');
                 }
                 throw new Error('Server error: ' + response.status);
             }
@@ -28,9 +40,7 @@ function fetchJson(url, options) {
                 throw new Error('Backend is not running. The server returned HTML/text instead of JSON. Response: ' + text.slice(0, 200));
             }
 
-            if (parsed) {
-                return parsed;
-            }
+            if (parsed) return parsed;
             try {
                 return JSON.parse(text);
             } catch (e) {
@@ -38,69 +48,6 @@ function fetchJson(url, options) {
             }
         });
     });
-}
-
-function setLoggedOutUI() {
-    var loginBox = document.getElementById('loginBox');
-    var smsBox = document.getElementById('smsBox');
-    var logoutLink = document.getElementById('logoutLink');
-    var fixedBrand = document.getElementById('fixedBrand');
-    var brandHeader = document.getElementById('brandHeader');
-    var previewSender = document.getElementById('previewSender');
-    var adminBox = document.getElementById('adminBox');
-
-    if (loginBox) loginBox.style.display = '';
-    if (smsBox) smsBox.style.display = 'none';
-    if (logoutLink) logoutLink.style.display = 'none';
-    if (fixedBrand) fixedBrand.value = '';
-    if (brandHeader) brandHeader.textContent = 'Inbox';
-    if (previewSender) previewSender.textContent = 'Sender';
-
-    var statusBox = document.getElementById('statusBox');
-    if (statusBox) statusBox.innerHTML = '';
-
-    if (adminBox) adminBox.style.display = 'none';
-}
-
-function setLoggedInUI(brandname, isAdmin) {
-    var loginBox = document.getElementById('loginBox');
-    var smsBox = document.getElementById('smsBox');
-    var logoutLink = document.getElementById('logoutLink');
-    var fixedBrand = document.getElementById('fixedBrand');
-    var brandHeader = document.getElementById('brandHeader');
-    var senderElements = document.querySelectorAll('.sender');
-    var adminBox = document.getElementById('adminBox');
-
-    if (loginBox) loginBox.style.display = 'none';
-    if (smsBox) smsBox.style.display = '';
-    if (logoutLink) logoutLink.style.display = '';
-    if (fixedBrand) fixedBrand.value = brandname || '';
-    if (brandHeader) brandHeader.textContent = brandname ? (brandname + ' Inbox') : 'Inbox';
-    senderElements.forEach(function(el) { el.textContent = brandname || 'Sender'; });
-
-    var statusBox = document.getElementById('statusBox');
-    if (statusBox) statusBox.innerHTML = '';
-
-    if (adminBox) {
-        adminBox.style.display = isAdmin ? '' : 'none';
-        if (isAdmin) {
-            refreshUsers();
-        }
-    }
-}
-
-function renderStatus(type, title, metaText) {
-    var statusBox = document.getElementById('statusBox');
-    if (!statusBox) return;
-
-    var safeTitle = String(title || '');
-    var safeMeta = String(metaText || '');
-
-    statusBox.innerHTML =
-        '<div class="status-card ' + (type === 'success' ? 'success' : 'error') + '">' +
-            '<div class="status-title">' + escapeHtml(safeTitle) + '</div>' +
-            '<div class="status-meta">' + escapeHtml(safeMeta) + '</div>' +
-        '</div>';
 }
 
 function renderStatusInto(el, type, title, metaText) {
@@ -114,104 +61,8 @@ function renderStatusInto(el, type, title, metaText) {
         '</div>';
 }
 
-function escapeHtml(str) {
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-function fetchSession() {
-    return fetchJson('/api/session', { method: 'GET' })
-        .then(function(data) {
-            if (data.status !== 'success') {
-                setLoggedOutUI();
-                return null;
-            }
-            if (data.logged_in) {
-                setLoggedInUI(data.brandname, data.is_admin);
-                return data;
-            }
-            setLoggedOutUI();
-            return null;
-        })
-        .catch(function() {
-            setLoggedOutUI();
-            return null;
-        });
-}
-
-function applyModeFromUrl() {
-    var params = new URLSearchParams(window.location.search || '');
-    var mode = (params.get('mode') || '').toLowerCase();
-
-    var loginBox = document.getElementById('loginBox');
-    var smsBox = document.getElementById('smsBox');
-    var freeBox = document.getElementById('freeBox');
-    var brandHeader = document.getElementById('brandHeader');
-
-    if (mode === 'free') {
-        if (loginBox) loginBox.style.display = 'none';
-        if (smsBox) smsBox.style.display = 'none';
-        if (freeBox) freeBox.style.display = '';
-        if (brandHeader) brandHeader.textContent = 'FREE';
-        return true;
-    }
-
-    if (freeBox) freeBox.style.display = 'none';
-    return false;
-}
-
-function login() {
-    var username = (document.getElementById('loginUsername') || {}).value || '';
-    var password = (document.getElementById('loginPassword') || {}).value || '';
-
-    username = username.trim();
-    if (!username || !password) {
-        alert('Enter username and password');
-        return;
-    }
-
-    fetchJson('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, password: password })
-    })
-        .then(function(res) {
-            if (res.status === 'success' && res.logged_in) {
-                setLoggedInUI(res.brandname, res.is_admin);
-                var passwordEl = document.getElementById('loginPassword');
-                if (passwordEl) passwordEl.value = '';
-                applyTemplateToMessageIfAny();
-                return;
-            }
-            alert(res.message || 'Login failed');
-        })
-        .catch(function(err) {
-            alert(err && err.message ? err.message : 'Login failed');
-        });
-}
-
-function logout() {
-    fetchJson('/api/logout', { method: 'POST' })
-        .then(function() {
-            setLoggedOutUI();
-        })
-        .catch(function() {
-            setLoggedOutUI();
-        });
-}
-
-function updatePreviewMessage() {
-    var messageInput = document.getElementById('Message1');
-    if (!messageInput) return;
-    var messageText = messageInput.value;
-    var messageElements = document.querySelectorAll('.message p');
-    messageElements.forEach(function(element) {
-        element.textContent = messageText || DEFAULT_PREVIEW_MESSAGE;
-    });
+function renderStatus(type, title, metaText) {
+    renderStatusInto(document.getElementById('statusBox'), type, title, metaText);
 }
 
 function autoGrowTextarea(el) {
@@ -226,6 +77,16 @@ function autoGrowTextarea(el) {
     }
     el.style.height = nextHeight + 'px';
     el.style.overflowY = 'hidden';
+}
+
+function updatePreviewMessage() {
+    var messageInput = document.getElementById('Message1');
+    if (!messageInput) return;
+    var messageText = messageInput.value;
+    var messageElements = document.querySelectorAll('.message p');
+    messageElements.forEach(function(element) {
+        element.textContent = messageText || DEFAULT_PREVIEW_MESSAGE;
+    });
 }
 
 function applyTemplateToMessageIfAny() {
@@ -245,87 +106,127 @@ function useTemplate(templateText) {
     window.location.href = 'index.html';
 }
 
-function refreshUsers() {
-    var usersList = document.getElementById('usersList');
-    if (!usersList) return;
-    usersList.textContent = 'Loading...';
+function setLoggedOutUI() {
+    var loginBox = document.getElementById('loginBox');
+    var smsBox = document.getElementById('smsBox');
+    var logoutLink = document.getElementById('logoutLink');
+    var fixedBrand = document.getElementById('fixedBrand');
+    var brandHeader = document.getElementById('brandHeader');
+    var previewSender = document.getElementById('previewSender');
+    var adminBox = document.getElementById('adminBox');
 
-    fetchJson('/api/admin/users', { method: 'GET' })
-        .then(function(res) {
-            if (res.status !== 'success' || !Array.isArray(res.users)) {
-                usersList.textContent = 'Failed to load users';
-                return;
+    if (loginBox) loginBox.style.display = '';
+    if (smsBox) smsBox.style.display = 'none';
+    if (logoutLink) logoutLink.style.display = 'none';
+    if (fixedBrand) fixedBrand.value = '';
+    if (brandHeader) brandHeader.textContent = 'Inbox';
+    if (previewSender) previewSender.textContent = 'Sender';
+    if (adminBox) adminBox.style.display = 'none';
+
+    var statusBox = document.getElementById('statusBox');
+    if (statusBox) statusBox.innerHTML = '';
+}
+
+function setLoggedInUI(brandname, isAdmin) {
+    var loginBox = document.getElementById('loginBox');
+    var smsBox = document.getElementById('smsBox');
+    var logoutLink = document.getElementById('logoutLink');
+    var fixedBrand = document.getElementById('fixedBrand');
+    var brandHeader = document.getElementById('brandHeader');
+    var senderElements = document.querySelectorAll('.sender');
+    var adminBox = document.getElementById('adminBox');
+
+    if (loginBox) loginBox.style.display = 'none';
+    if (smsBox) smsBox.style.display = '';
+    if (logoutLink) logoutLink.style.display = '';
+    if (fixedBrand) fixedBrand.value = brandname || '';
+    if (brandHeader) brandHeader.textContent = brandname ? (brandname + ' Inbox') : 'Inbox';
+    senderElements.forEach(function(el) { el.textContent = brandname || 'Sender'; });
+    if (adminBox) adminBox.style.display = isAdmin ? '' : 'none';
+
+    var statusBox = document.getElementById('statusBox');
+    if (statusBox) statusBox.innerHTML = '';
+
+    if (isAdmin) refreshUsers();
+}
+
+function fetchSession() {
+    return fetchJson('/api/session', { method: 'GET' })
+        .then(function(data) {
+            if (data.status !== 'success') {
+                setLoggedOutUI();
+                return null;
             }
-            if (res.users.length === 0) {
-                usersList.textContent = 'No users yet';
-                return;
+            if (data.logged_in) {
+                setLoggedInUI(data.brandname, !!data.is_admin);
+                return data;
             }
-            usersList.innerHTML = res.users.map(function(u) {
-                var line1 = (u.username || '') + (u.is_admin ? ' (admin)' : '');
-                var line2 = 'Brandname: ' + (u.brandname || '') + (u.disabled ? ' • Disabled' : ' • Active');
-                var actions = '';
-                if (!u.is_admin) {
-                    actions =
-                        '<div class="user-actions">' +
-                            '<button class="mini-button js-toggle-user" data-username="' + escapeHtml(u.username || '') + '" data-disabled="' + (u.disabled ? '0' : '1') + '">' + (u.disabled ? 'Enable' : 'Disable') + '</button>' +
-                            '<button class="mini-button js-reset-pass" data-username="' + escapeHtml(u.username || '') + '">Reset Password</button>' +
-                        '</div>';
-                }
-                return '<div class="user-row"><div class="u1">' + escapeHtml(line1) + '</div><div class="u2">' + escapeHtml(line2) + '</div>' + actions + '</div>';
-            }).join('');
+            setLoggedOutUI();
+            return null;
         })
-        .catch(function(err) {
-            usersList.textContent = err && err.message ? err.message : 'Failed to load users';
+        .catch(function() {
+            setLoggedOutUI();
+            return null;
         });
 }
 
-function createUser() {
-    var btn = document.getElementById('createUserBtn');
-    var usernameEl = document.getElementById('newUsername');
-    var brandEl = document.getElementById('newBrandname');
-    var passwordEl = document.getElementById('newPassword');
-
-    var username = usernameEl ? usernameEl.value.trim() : '';
-    var brandname = brandEl ? brandEl.value.trim() : '';
-    var password = passwordEl ? passwordEl.value : '';
-
-    if (!username || !brandname || !password) {
-        renderStatus('error', 'Fill all fields', 'Username, brandname and password are required.');
+function login() {
+    var username = (document.getElementById('loginUsername') || {}).value || '';
+    var password = (document.getElementById('loginPassword') || {}).value || '';
+    username = username.trim();
+    if (!username || !password) {
+        renderStatus('error', 'Login', 'Enter username and password.');
         return;
     }
 
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = 'Creating...';
-    }
-
-    fetchJson('/api/admin/users', {
+    fetchJson('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, brandname: brandname, password: password })
+        body: JSON.stringify({ username: username, password: password })
     })
         .then(function(res) {
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Create Account';
-            }
-            if (res.status === 'success') {
-                if (usernameEl) usernameEl.value = '';
-                if (brandEl) brandEl.value = '';
+            if (res.status === 'success' && res.logged_in) {
+                setLoggedInUI(res.brandname, !!res.is_admin);
+                var passwordEl = document.getElementById('loginPassword');
                 if (passwordEl) passwordEl.value = '';
-                renderStatus('success', 'Account created', 'Username: ' + username + '\nBrandname: ' + brandname);
-                refreshUsers();
+                applyTemplateToMessageIfAny();
                 return;
             }
-            renderStatus('error', 'Failed', res.message || 'Could not create account');
+            renderStatus('error', 'Login failed', res.message || 'Login failed');
         })
         .catch(function(err) {
-            if (btn) {
-                btn.disabled = false;
-                btn.textContent = 'Create Account';
-            }
-            renderStatus('error', 'Error', err && err.message ? err.message : 'Could not create account');
+            renderStatus('error', 'Login failed', err && err.message ? err.message : 'Login failed');
         });
+}
+
+function logout() {
+    fetchJson('/api/logout', { method: 'POST' })
+        .then(function() {
+            setLoggedOutUI();
+        })
+        .catch(function() {
+            setLoggedOutUI();
+        });
+}
+
+function applyModeFromUrl() {
+    var params = new URLSearchParams(window.location.search || '');
+    var mode = (params.get('mode') || '').toLowerCase();
+
+    var loginBox = document.getElementById('loginBox');
+    var smsBox = document.getElementById('smsBox');
+    var freeBox = document.getElementById('freeBox');
+    var brandHeader = document.getElementById('brandHeader');
+
+    if (mode === 'free') {
+        if (loginBox) loginBox.style.display = 'none';
+        if (smsBox) smsBox.style.display = 'none';
+        if (freeBox) freeBox.style.display = '';
+        if (brandHeader) brandHeader.textContent = 'FREE';
+        return true;
+    }
+    if (freeBox) freeBox.style.display = 'none';
+    return false;
 }
 
 function sendFreeSMS() {
@@ -400,37 +301,181 @@ function sendSMS() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: message, recipientPhone: recipientPhone })
     })
-    .then(function(res) {
-        if (sendBtn) {
-            sendBtn.disabled = false;
-            sendBtn.textContent = 'Send';
-        }
-        if (res.status === 'success') {
-            var brand = (document.getElementById('fixedBrand') || {}).value || 'Sender';
-            var meta = 'From: ' + brand + '\nTo: ' + recipientPhone + '\nMessage: ' + message;
-            if (Object.prototype.hasOwnProperty.call(res, 'template_saved')) {
-                if (res.template_saved) {
-                    meta += '\nTemplate: saved';
-                } else {
-                    meta += '\nTemplate: already exists';
-                }
+        .then(function(res) {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send';
             }
-            renderStatus('success', 'SMS sent successfully', meta);
-        } else if (res.message === 'Not logged in') {
-            renderStatus('error', 'Session expired', 'Please login again.');
-            setLoggedOutUI();
-        } else {
-            var meta = (res.message || 'Unknown error') + (res.raw_response ? '\n' + res.raw_response : '');
-            renderStatus('error', 'Failed to send SMS', meta);
-        }
+            if (res.status === 'success') {
+                var brand = (document.getElementById('fixedBrand') || {}).value || 'Sender';
+                var meta = 'From: ' + brand + '\nTo: ' + recipientPhone + '\nMessage: ' + message;
+                if (Object.prototype.hasOwnProperty.call(res, 'template_saved')) {
+                    meta += res.template_saved ? '\nTemplate: saved' : '\nTemplate: already exists';
+                }
+                renderStatus('success', 'SMS sent successfully', meta);
+                return;
+            }
+            if (res.message === 'Not logged in') {
+                renderStatus('error', 'Session expired', 'Please login again.');
+                setLoggedOutUI();
+                return;
+            }
+            var meta2 = (res.message || 'Unknown error') + (res.detail ? '\n' + res.detail : '') + (res.raw_response ? '\n' + res.raw_response : '');
+            renderStatus('error', 'Failed to send SMS', meta2);
+        })
+        .catch(function(err) {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send';
+            }
+            renderStatus('error', 'Error', err && err.message ? err.message : 'An error occurred while sending the SMS.');
+        });
+}
+
+function refreshUsers() {
+    var usersList = document.getElementById('usersList');
+    if (!usersList) return;
+    usersList.textContent = 'Loading...';
+    fetchJson('/api/admin/users', { method: 'GET' })
+        .then(function(res) {
+            if (res.status !== 'success' || !Array.isArray(res.users)) {
+                usersList.textContent = 'Failed to load users';
+                return;
+            }
+            if (res.users.length === 0) {
+                usersList.textContent = 'No users yet';
+                return;
+            }
+            usersList.innerHTML = res.users.map(function(u) {
+                var line1 = (u.username || '') + (u.is_admin ? ' (admin)' : '');
+                var line2 = 'Brandname: ' + (u.brandname || '') + (u.disabled ? ' • Disabled' : ' • Active');
+                var actions = '';
+                if (!u.is_admin) {
+                    actions =
+                        '<div class="user-actions">' +
+                            '<button class="mini-button js-toggle-user" data-username="' + escapeHtml(u.username || '') + '" data-disabled="' + (u.disabled ? '0' : '1') + '">' + (u.disabled ? 'Enable' : 'Disable') + '</button>' +
+                            '<button class="mini-button js-reset-pass" data-username="' + escapeHtml(u.username || '') + '">Reset Password</button>' +
+                            '<button class="mini-button js-change-brand" data-username="' + escapeHtml(u.username || '') + '">Change Brand</button>' +
+                        '</div>';
+                }
+                return '<div class="user-row"><div class="u1">' + escapeHtml(line1) + '</div><div class="u2">' + escapeHtml(line2) + '</div>' + actions + '</div>';
+            }).join('');
+        })
+        .catch(function(err) {
+            usersList.textContent = err && err.message ? err.message : 'Failed to load users';
+        });
+}
+
+function createUser() {
+    var btn = document.getElementById('createUserBtn');
+    var usernameEl = document.getElementById('newUsername');
+    var brandEl = document.getElementById('newBrandname');
+    var passwordEl = document.getElementById('newPassword');
+
+    var username = usernameEl ? usernameEl.value.trim() : '';
+    var brandname = brandEl ? brandEl.value.trim() : '';
+    var password = passwordEl ? passwordEl.value : '';
+
+    if (!username || !brandname || !password) {
+        renderStatus('error', 'Fill all fields', 'Username, brandname and password are required.');
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Creating...';
+    }
+
+    fetchJson('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, brandname: brandname, password: password })
     })
-    .catch(function(err) {
-        if (sendBtn) {
-            sendBtn.disabled = false;
-            sendBtn.textContent = 'Send';
-        }
-        renderStatus('error', 'Error', err && err.message ? err.message : 'An error occurred while sending the SMS.');
-    });
+        .then(function(res) {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Create Account';
+            }
+            if (res.status === 'success') {
+                if (usernameEl) usernameEl.value = '';
+                if (brandEl) brandEl.value = '';
+                if (passwordEl) passwordEl.value = '';
+                renderStatus('success', 'Account created', 'Username: ' + username + '\nBrandname: ' + brandname);
+                refreshUsers();
+                return;
+            }
+            renderStatus('error', 'Failed', res.message || 'Could not create account');
+        })
+        .catch(function(err) {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = 'Create Account';
+            }
+            renderStatus('error', 'Error', err && err.message ? err.message : 'Could not create account');
+        });
+}
+
+function toggleUserDisabled(username, disabled) {
+    if (!username) return;
+    fetchJson('/api/admin/users/disable', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, disabled: disabled })
+    })
+        .then(function(res) {
+            if (res.status === 'success') {
+                renderStatus('success', 'Updated', username + (disabled ? ' disabled' : ' enabled'));
+                refreshUsers();
+                return;
+            }
+            renderStatus('error', 'Failed', res.message || 'Could not update user');
+        })
+        .catch(function(err) {
+            renderStatus('error', 'Error', err && err.message ? err.message : 'Could not update user');
+        });
+}
+
+function resetUserPassword(username) {
+    if (!username) return;
+    var newPass = window.prompt('Enter new password for ' + username);
+    if (!newPass) return;
+    fetchJson('/api/admin/users/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, new_password: newPass })
+    })
+        .then(function(res) {
+            if (res.status === 'success') {
+                renderStatus('success', 'Password reset', 'Password changed for ' + username);
+                return;
+            }
+            renderStatus('error', 'Failed', res.message || 'Could not reset password');
+        })
+        .catch(function(err) {
+            renderStatus('error', 'Error', err && err.message ? err.message : 'Could not reset password');
+        });
+}
+
+function changeUserBrandname(username) {
+    if (!username) return;
+    var newBrand = window.prompt('Enter new brandname for ' + username);
+    if (!newBrand) return;
+    fetchJson('/api/admin/users/update-brandname', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, brandname: newBrand })
+    })
+        .then(function(res) {
+            if (res.status === 'success') {
+                renderStatus('success', 'Brandname updated', 'User: ' + username + '\nBrandname: ' + newBrand);
+                refreshUsers();
+                return;
+            }
+            renderStatus('error', 'Failed', res.message || 'Could not update brandname');
+        })
+        .catch(function(err) {
+            renderStatus('error', 'Error', err && err.message ? err.message : 'Could not update brandname');
+        });
 }
 
 function setTemplateStatus(text) {
@@ -506,7 +551,6 @@ function deleteTemplate(templateId) {
 
 document.addEventListener('DOMContentLoaded', function() {
     var isFreeMode = applyModeFromUrl();
-
     if (isFreeMode) {
         var freeMessage = document.getElementById('freeMessage');
         var freePhone = document.getElementById('freeRecipientPhone');
@@ -530,6 +574,30 @@ document.addEventListener('DOMContentLoaded', function() {
     var recipientInput = document.getElementById('recipientPhone');
     if (recipientInput) {
         recipientInput.addEventListener('input', function() { autoGrowTextarea(recipientInput); });
+    }
+
+    var usersList = document.getElementById('usersList');
+    if (usersList) {
+        usersList.addEventListener('click', function(e) {
+            var t = e.target;
+            if (!t) return;
+            if (t.classList && t.classList.contains('js-toggle-user')) {
+                var username = t.getAttribute('data-username') || '';
+                var disabled = t.getAttribute('data-disabled') === '1';
+                toggleUserDisabled(username, disabled);
+                return;
+            }
+            if (t.classList && t.classList.contains('js-reset-pass')) {
+                var username2 = t.getAttribute('data-username') || '';
+                resetUserPassword(username2);
+                return;
+            }
+            if (t.classList && t.classList.contains('js-change-brand')) {
+                var username3 = t.getAttribute('data-username') || '';
+                changeUserBrandname(username3);
+                return;
+            }
+        });
     }
 
     fetchSession().then(function(session) {
@@ -562,69 +630,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    var usersList = document.getElementById('usersList');
-    if (usersList) {
-        usersList.addEventListener('click', function(e) {
-            var t = e.target;
-            if (!t) return;
-            if (t.classList && t.classList.contains('js-toggle-user')) {
-                var username = t.getAttribute('data-username') || '';
-                var disabled = t.getAttribute('data-disabled') === '1';
-                toggleUserDisabled(username, disabled);
-                return;
-            }
-            if (t.classList && t.classList.contains('js-reset-pass')) {
-                var username2 = t.getAttribute('data-username') || '';
-                resetUserPassword(username2);
-                return;
-            }
-        });
-    }
-
     updatePreviewMessage();
     autoGrowTextarea(messageInput);
     autoGrowTextarea(recipientInput);
 });
-
-function toggleUserDisabled(username, disabled) {
-    if (!username) return;
-    fetchJson('/api/admin/users/disable', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, disabled: disabled })
-    })
-        .then(function(res) {
-            if (res.status === 'success') {
-                renderStatus('success', 'Updated', username + (disabled ? ' disabled' : ' enabled'));
-                refreshUsers();
-                return;
-            }
-            renderStatus('error', 'Failed', res.message || 'Could not update user');
-        })
-        .catch(function(err) {
-            renderStatus('error', 'Error', err && err.message ? err.message : 'Could not update user');
-        });
-}
-
-function resetUserPassword(username) {
-    if (!username) return;
-    var newPass = window.prompt('Enter new password for ' + username);
-    if (!newPass) return;
-    fetchJson('/api/admin/users/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username, new_password: newPass })
-    })
-        .then(function(res) {
-            if (res.status === 'success') {
-                renderStatus('success', 'Password reset', 'Password changed for ' + username);
-                return;
-            }
-            renderStatus('error', 'Failed', res.message || 'Could not reset password');
-        })
-        .catch(function(err) {
-            renderStatus('error', 'Error', err && err.message ? err.message : 'Could not reset password');
-        });
-}
-
 

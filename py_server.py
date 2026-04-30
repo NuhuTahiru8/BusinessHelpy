@@ -7,6 +7,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+import urllib.error
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -611,6 +612,44 @@ class Handler(BaseHTTPRequestHandler):
 
             return self.send_json(200, {"status": "success", "username": target_username})
 
+        if path == "/api/admin/users/update-brandname":
+            session = self.require_session()
+            if not session:
+                return
+            if not session.get("is_admin"):
+                return self.send_json(403, {"status": "error", "message": "Forbidden"})
+
+            body = self.read_json()
+            if body is None:
+                return self.send_json(400, {"status": "error", "message": "Invalid JSON"})
+
+            target_username = normalize_username(str(body.get("username", "")))
+            new_brandname = normalize_brandname(str(body.get("brandname", "")))
+            if not target_username:
+                return self.send_json(400, {"status": "error", "message": "Username is required"})
+            if not is_valid_brandname(new_brandname):
+                return self.send_json(400, {"status": "error", "message": "Invalid brandname (3-15 letters/numbers/spaces)"})
+
+            with USERS_LOCK:
+                u = USERS.get(target_username)
+                if not u:
+                    return self.send_json(404, {"status": "error", "message": "User not found"})
+                for other in USERS.values():
+                    if not isinstance(other, dict):
+                        continue
+                    if normalize_brandname(str(other.get("brandname", ""))) == new_brandname and normalize_username(str(other.get("username", ""))) != target_username:
+                        return self.send_json(409, {"status": "error", "message": "Brandname already in use"})
+
+                u["brandname"] = new_brandname
+                save_users_to_disk(USERS)
+
+            for sid, sess in list(SESSIONS.items()):
+                if isinstance(sess, dict) and sess.get("username") == target_username:
+                    sess["brandname"] = new_brandname
+                    SESSIONS[sid] = sess
+
+            return self.send_json(200, {"status": "success", "username": target_username, "brandname": new_brandname})
+
         if path == "/api/templates/delete":
             session = self.require_session()
             if not session:
@@ -694,8 +733,22 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:
                         parsed = raw
                     results.append({"to": to, "response": parsed})
+                except urllib.error.HTTPError as e:
+                    try:
+                        body = e.read().decode("utf-8", errors="replace")
+                    except Exception:
+                        body = ""
+                    detail = f"HTTPError {getattr(e, 'code', '')} {getattr(e, 'reason', '')}: {body[:800]}"
+                    print(f"Arkesel send-sms-free failed for to={to}: {detail}")
+                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail, "raw_response": body[:800]})
+                except urllib.error.URLError as e:
+                    detail = repr(e)
+                    print(f"Arkesel send-sms-free failed for to={to}: {detail}")
+                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail})
                 except Exception as e:
-                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": str(e)})
+                    detail = repr(e)
+                    print(f"Arkesel send-sms-free failed for to={to}: {detail}")
+                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail})
 
             now = utc_now_iso()
             with CONTACTS_LOCK:
@@ -789,8 +842,22 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:
                         parsed = raw
                     results.append({"to": to, "response": parsed})
+                except urllib.error.HTTPError as e:
+                    try:
+                        body = e.read().decode("utf-8", errors="replace")
+                    except Exception:
+                        body = ""
+                    detail = f"HTTPError {getattr(e, 'code', '')} {getattr(e, 'reason', '')}: {body[:800]}"
+                    print(f"Arkesel send-sms failed for to={to}: {detail}")
+                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail, "raw_response": body[:800]})
+                except urllib.error.URLError as e:
+                    detail = repr(e)
+                    print(f"Arkesel send-sms failed for to={to}: {detail}")
+                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail})
                 except Exception as e:
-                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": str(e)})
+                    detail = repr(e)
+                    print(f"Arkesel send-sms failed for to={to}: {detail}")
+                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail})
 
             now = utc_now_iso()
             with CONTACTS_LOCK:

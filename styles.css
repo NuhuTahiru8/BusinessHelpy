@@ -33,16 +33,6 @@ body {
     color: white; /* Text color of the active navigation link */
 }
 
-.topnav a.whatsapp {
-    background-color: #25D366;
-    color: #ffffff;
-}
-
-.topnav a.whatsapp:hover {
-    background-color: #1fb65a;
-    color: #ffffff;
-}
-
 .topnav .icon {
     display: none; /* Hide the hamburger icon by default */
 }
@@ -238,93 +228,6 @@ textarea {
     overflow-wrap: anywhere;
 }
 
-.admin-title {
-    margin-top: 14px;
-    font-weight: 800;
-    font-size: 16px;
-}
-
-.admin-card {
-    width: 100%;
-    margin-top: 10px;
-    border-radius: 14px;
-    padding: 12px;
-    box-sizing: border-box;
-    border: 1px solid #e5e7eb;
-    background: #ffffff;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
-}
-
-.admin-subtitle {
-    font-weight: 700;
-    font-size: 14px;
-    margin-bottom: 10px;
-}
-
-#usersList {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.user-row {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 10px;
-    border-radius: 12px;
-    border: 1px solid #f0f0f0;
-    background: #fafafa;
-}
-
-.user-row .u1 {
-    font-weight: 700;
-    font-size: 14px;
-}
-
-.user-row .u2 {
-    font-size: 13px;
-    opacity: 0.85;
-    overflow-wrap: anywhere;
-}
-
-.user-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 8px;
-    flex-wrap: wrap;
-}
-
-.mini-button {
-    padding: 10px 14px;
-    font-size: 14px;
-    cursor: pointer;
-    outline: none;
-    color: #fff;
-    background-color: #04AA6D;
-    border: none;
-    border-radius: 12px;
-    box-shadow: 0 6px #999;
-}
-
-.mini-button:hover {
-    background-color: hotpink;
-}
-
-.mini-button:active {
-    background-color: #3e8e41;
-    box-shadow: 0 3px #666;
-    transform: translateY(2px);
-}
-
-.mini-button.danger {
-    background-color: #dc2626;
-}
-
-.mini-button.danger:hover {
-    background-color: #b91c1c;
-}
-
 /* Button styles */
 .button {
     padding: 15px 25px;
@@ -387,51 +290,6 @@ textarea {
     gap: 20px;
 }
 
-.template-card {
-    width: min(520px, 100%);
-    border-radius: 14px;
-    padding: 12px;
-    box-sizing: border-box;
-    border: 1px solid #e5e7eb;
-    background: #ffffff;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
-    text-align: left;
-}
-
-.template-title {
-    font-weight: 800;
-    font-size: 15px;
-    margin-bottom: 8px;
-}
-
-.template-text {
-    font-size: 14px;
-    line-height: 1.4;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-    background: #fafafa;
-    border: 1px solid #f0f0f0;
-    border-radius: 12px;
-    padding: 10px;
-}
-
-.template-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-    flex-wrap: wrap;
-}
-
-.template-empty {
-    width: 100%;
-    max-width: 520px;
-    padding: 14px;
-    border-radius: 14px;
-    border: 1px dashed #d1d5db;
-    color: #374151;
-    background: #ffffff;
-}
-
 .flip-box {
     background-color: transparent;
     width: 300px;
@@ -481,17 +339,6 @@ textarea {
     box-sizing: border-box;
 }
 
-.flip-box-back h4 {
-    margin: 0;
-    overflow-y: auto;
-    max-height: 110px;
-    width: 100%;
-    text-align: center;
-    -webkit-overflow-scrolling: touch;
-    white-space: pre-wrap;
-    overflow-wrap: anywhere;
-}
-
 .use-template-button {
     margin-top: 20px;
     padding: 10px;
@@ -504,18 +351,4 @@ textarea {
 
 .use-template-button:hover {
     background-color: #039c5d;
-}
-
-.delete-template-button {
-    margin-top: 10px;
-    padding: 10px;
-    background-color: #dc2626;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-.delete-template-button:hover {
-    background-color: #b91c1c;
 }
