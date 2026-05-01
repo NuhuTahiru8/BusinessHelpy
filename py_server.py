@@ -30,16 +30,19 @@ SESSION_TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", "28800"))  # 8 h
 FORCE_SECURE_COOKIES = os.environ.get("FORCE_SECURE_COOKIES", "").strip().lower() in ("1", "true", "yes")
 
 FREE_SENDER_IDS = [
-    "Mothers Day",
-    "EnjoyUrDay",
-    "Happy Day",
-    "Birthday",
-    "FATHERS",
-    "I LOVE YOU DAY",
     "CONGRATE",
+    "Mothers Day",
+    "Happy Day",
     "GoodMorning",
+    "I LOVE YOU",
     "EidGreeting",
     "Eid Salam",
+    "EnjoyUrDay",
+    "HAPPY EID",
+    "FATHERS DAY",
+    "GRADUATION",
+    "CONGRATS",
+    "Birthday",
 ]
 
 SESSIONS = {}
