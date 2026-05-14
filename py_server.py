@@ -1144,7 +1144,6 @@ class Handler(BaseHTTPRequestHandler):
                 "email": email,
                 "amount": int(price) * 100,
                 "currency": "GHS",
-                "channels": ["mobile_money"],
                 "reference": reference,
                 "metadata": {"username": str(session.get("username") or ""), "sms": sms, "ghs": price},
             }
