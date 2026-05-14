@@ -1140,6 +1140,8 @@ class Handler(BaseHTTPRequestHandler):
             host = str(self.headers.get("Host") or "").strip()
             scheme = "https" if self.is_https_request() else "http"
             callback_url = (scheme + "://" + host + "/index.html?mode=subscription") if host else None
+            # NOTE: Do not force Paystack channels (e.g., mobile_money); let checkout offer available channels.
+            # NOTE: Do not force Paystack channels (e.g., mobile_money); let checkout offer available channels.
             payload = {
                 "email": email,
                 "amount": int(price) * 100,
