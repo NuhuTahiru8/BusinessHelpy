@@ -588,7 +588,8 @@ class Handler(BaseHTTPRequestHandler):
     def is_https_request(self):
         if FORCE_SECURE_COOKIES:
             return True
-        xf_proto = (self.headers.get("X-Forwarded-Proto") or "").strip().lower()
+        xf_proto = (self.headers.get("X-Forwarded-Proto") or "")
+        xf_proto = xf_proto.split(",")[0].strip().lower()
         if xf_proto == "https":
             return True
         return bool(getattr(self.server, "is_https", False))
@@ -1137,11 +1138,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(500, {"status": "error", "message": "Missing PAYSTACK_SECRET_KEY on the server"})
 
             reference = "BH_" + str(utc_now_ts()) + "_" + secrets.token_hex(6)
-            host = str(self.headers.get("Host") or "").strip()
-            scheme = "https" if self.is_https_request() else "http"
-            callback_url = (scheme + "://" + host + "/index.html?mode=subscription") if host else None
-            # NOTE: Do not force Paystack channels (e.g., mobile_money); let checkout offer available channels.
-            # NOTE: Do not force Paystack channels (e.g., mobile_money); let checkout offer available channels.
+            public_base = (os.environ.get("PUBLIC_BASE_URL") or "").strip().rstrip("/")
+            if public_base:
+                callback_url = public_base + "/index.html?mode=subscription"
+            else:
+                xf_host = str(self.headers.get("X-Forwarded-Host") or "").strip()
+                xf_host = xf_host.split(",")[0].strip()
+                host = xf_host or str(self.headers.get("Host") or "").strip()
+                scheme = "https" if self.is_https_request() else "http"
+                callback_url = (scheme + "://" + host + "/index.html?mode=subscription") if host else None
             payload = {
                 "email": email,
                 "amount": int(price) * 100,
@@ -1155,7 +1160,12 @@ class Handler(BaseHTTPRequestHandler):
                 "https://api.paystack.co/transaction/initialize",
                 data=json.dumps(payload).encode("utf-8"),
                 method="POST",
-                headers={"Authorization": f"Bearer {secret_key}", "Content-Type": "application/json"},
+                headers={
+                    "Authorization": f"Bearer {secret_key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "User-Agent": "Mozilla/5.0",
+                },
             )
             try:
                 with urllib.request.urlopen(req, timeout=20) as resp:
@@ -1166,16 +1176,51 @@ class Handler(BaseHTTPRequestHandler):
                     body2 = e.read().decode("utf-8", errors="replace")
                 except Exception:
                     body2 = ""
-                return self.send_json(502, {"status": "error", "message": "Failed to initialize payment", "detail": body2[:800]})
+                safe_print(f"Paystack initialize HTTPError code={getattr(e, 'code', '')} body={body2[:800]}")
+                return self.send_json(
+                    502,
+                    {
+                        "status": "error",
+                        "message": "Failed to initialize payment",
+                        "http_status": int(getattr(e, "code", 0) or 0),
+                        "detail": body2[:800],
+                        "raw_response": body2[:800],
+                    },
+                )
+            except urllib.error.URLError as e:
+                safe_print(f"Paystack initialize URLError: {repr(e)}")
+                return self.send_json(502, {"status": "error", "message": "Failed to reach Paystack", "detail": repr(e)})
             except Exception as e:
+                safe_print(f"Paystack initialize error: {repr(e)}")
+                safe_print(traceback.format_exc())
                 return self.send_json(502, {"status": "error", "message": "Failed to initialize payment", "detail": repr(e)})
 
-            if not isinstance(data, dict) or not data.get("status"):
-                return self.send_json(502, {"status": "error", "message": "Invalid Paystack response"})
+            if not isinstance(data, dict):
+                safe_print(f"Paystack initialize unexpected response type={type(data).__name__} raw={raw[:800]}")
+                return self.send_json(502, {"status": "error", "message": "Invalid Paystack response", "raw_response": raw[:800]})
+
+            if data.get("status") is not True:
+                msg = str(data.get("message") or "Paystack rejected the request")
+                safe_print(f"Paystack initialize rejected reference={reference} raw={raw[:800]}")
+                return self.send_json(
+                    502,
+                    {
+                        "status": "error",
+                        "message": msg,
+                        "reference": reference,
+                        "paystack": data,
+                        "raw_response": raw[:800],
+                    },
+                )
+
             d = data.get("data") if isinstance(data.get("data"), dict) else {}
             auth_url = str(d.get("authorization_url") or "").strip()
             if not auth_url:
-                return self.send_json(502, {"status": "error", "message": "Missing authorization URL"})
+                safe_print(f"Paystack initialize missing authorization_url reference={reference} raw={raw[:800]}")
+                return self.send_json(
+                    502,
+                    {"status": "error", "message": "Missing authorization URL", "reference": reference, "paystack": data, "raw_response": raw[:800]},
+                )
 
             return self.send_json(200, {"status": "success", "authorization_url": auth_url, "reference": reference})
 
