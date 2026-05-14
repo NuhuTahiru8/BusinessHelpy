@@ -1138,7 +1138,7 @@ class Handler(BaseHTTPRequestHandler):
 
             reference = "BH_" + str(utc_now_ts()) + "_" + secrets.token_hex(6)
             host = str(self.headers.get("Host") or "").strip()
-            scheme = "https" if bool(getattr(self.server, "is_https", False)) else "http"
+            scheme = "https" if self.is_https_request() else "http"
             callback_url = (scheme + "://" + host + "/index.html?mode=subscription") if host else None
             payload = {
                 "email": email,
