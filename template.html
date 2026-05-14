@@ -11,11 +11,12 @@
     <div class="topnav" id="myTopnav">
         <a href="index.html">Home</a>
         <a href="template.html" class="active">Templates</a>
-        <a href="index.html?mode=free" id="freeLink">FREE</a>
-        <a class="whatsapp" href="https://chat.whatsapp.com/PASTE_INVITE_CODE_HERE" target="_blank" rel="noopener">WhatsApp</a>
-        <a href="#contact">Contact</a>
-        <a href="#about">About</a>
+        <a href="index.html?mode=subscription" id="subscriptionLink">Top up</a>
+        <a href="index.html?mode=special" id="specialDayLink">Special Day</a>
+        <a class="whatsapp" href="https://wa.me/233243951661?text=hi%2C%20i%27m%20messaging%20you%20from%20AyiSun%20platform." target="_blank" rel="noopener" aria-label="WhatsApp"><i class="fa fa-whatsapp"></i></a>
+        <a href="index.html?mode=about" id="aboutLink">About</a>
         <a href="javascript:void(0);" id="logoutLink" style="display:none;" onclick="logout()">Logout</a>
+        <span class="nav-balance" id="smsBalanceBadge" style="display:none;"></span>
         <a href="javascript:void(0);" class="icon" onclick="myFunction()">
             <i class="fa fa-bars"></i>
         </a>
@@ -23,34 +24,21 @@
 
     <div id="templates-page">
         <h1>Templates</h1>
-        <div class="templates">
-            <div class="flip-box">
-                <div class="flip-box-inner">
-                    <div class="flip-box-front">
-                        <h2>Birthday Wish</h2>
-                    </div>
-                    <div class="flip-box-back">
-                        <h4>Words can't express how grateful I am for your endless love and support.</h4>
-                        <button class="use-template-button" onclick="useTemplate('Words can\\'t express how grateful I am for your endless love and support.')">Use Template</button>
-                    </div>
-                </div>
-            </div>
-            <div class="flip-box">
-                <div class="flip-box-inner">
-                    <div class="flip-box-front">
-                        <h2>Happy Day</h2>
-                    </div>
-                    <div class="flip-box-back">
-                        <h4>Hope your day is filled with happiness and joy!</h4>
-                        <button class="use-template-button" onclick="useTemplate('Hope your day is filled with happiness and joy!')">Use Template</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <h2>Saved Templates</h2>
         <div id="templateStatus"></div>
         <div class="templates" id="dynamicTemplates"></div>
+
+        <div id="adminTemplatesBox" style="display:none;">
+            <div class="admin-title">Admin Templates</div>
+            <div class="admin-card">
+                <div class="admin-subtitle">Add Template</div>
+                <input type="text" id="adminTemplateId" list="specialDayIds" placeholder="Template ID (pick Special Day ID)" autocomplete="off" />
+                <datalist id="specialDayIds"></datalist>
+                <textarea id="adminTemplateText" data-max-height="160" placeholder="Template message"></textarea>
+                <button class="mini-button" id="addAdminTemplateBtn" onclick="addAdminTemplate()">Add Template</button>
+                <div id="adminTemplateStatus"></div>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>
