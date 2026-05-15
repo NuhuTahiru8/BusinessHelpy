@@ -30,34 +30,74 @@ COOKIE_NAME = "bh_sid"
 SESSION_TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", "28800"))  # 8 hours
 FORCE_SECURE_COOKIES = os.environ.get("FORCE_SECURE_COOKIES", "").strip().lower() in ("1", "true", "yes")
 
-DEFAULT_SPECIAL_DAY_SENDER_IDS = [
-    "CONGRATE",
-    "Mothers Day",
-    "Happy Day",
-    "GoodMorning",
-    "I LOVE YOU",
-    "EidGreeting",
-    "Eid Salam",
-    "EnjoyUrDay",
-    "HAPPY EID",
-    "FATHERS DAY",
-    "GRADUATION",
-    "CONGRATS",
-    "Birthday",
-]
+DATA_BACKEND = os.environ.get("DATA_BACKEND", "file").strip().lower()
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+_PG_LOCAL = threading.local()
 
-DEFAULT_ADMIN_TEMPLATES = [
-    {
-        "id": "BIRTHDAY_WISH",
-        "title": "Birthday Wish",
-        "text": "Words can't express how grateful I am for your endless love and support.",
-    },
-    {
-        "id": "HAPPY_DAY",
-        "title": "Happy Day",
-        "text": "Hope your day is filled with happiness and joy!",
-    },
-]
+def _pg_enabled():
+    return DATA_BACKEND in ("postgres", "pg")
+
+def _pg_connect():
+    if not DATABASE_URL:
+        raise RuntimeError("DATA_BACKEND=postgres requires DATABASE_URL")
+    try:
+        import psycopg2  # type: ignore
+    except Exception as e:
+        raise RuntimeError("Postgres backend requires psycopg2. Install: apt install python3-psycopg2 (or pip install psycopg2-binary)") from e
+    conn = psycopg2.connect(DATABASE_URL)
+    conn.autocommit = True
+    return conn
+
+def _pg_conn():
+    conn = getattr(_PG_LOCAL, "conn", None)
+    if conn is not None:
+        return conn
+    conn = _pg_connect()
+    _PG_LOCAL.conn = conn
+    return conn
+
+def _pg_init_schema():
+    if not _pg_enabled():
+        return
+    conn = _pg_conn()
+    with conn.cursor() as cur:
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS bh_kv ("
+            " key text PRIMARY KEY,"
+            " value jsonb NOT NULL,"
+            " updated_at timestamptz NOT NULL DEFAULT now()"
+            ")"
+        )
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS bh_sms_logs ("
+            " id bigserial PRIMARY KEY,"
+            " created_at timestamptz NOT NULL DEFAULT now(),"
+            " entry jsonb NOT NULL"
+            ")"
+        )
+
+def _pg_kv_get(key: str):
+    conn = _pg_conn()
+    with conn.cursor() as cur:
+        cur.execute("SELECT value FROM bh_kv WHERE key = %s", (key,))
+        row = cur.fetchone()
+    if not row:
+        return None
+    return row[0]
+
+def _pg_kv_set(key: str, value):
+    conn = _pg_conn()
+    payload = json.dumps(value, ensure_ascii=False)
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO bh_kv(key, value, updated_at) VALUES (%s, %s::jsonb, now()) "
+            "ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at",
+            (key, payload),
+        )
+
+DEFAULT_SPECIAL_DAY_SENDER_IDS = []
+
+DEFAULT_ADMIN_TEMPLATES = []
 
 SUBSCRIPTION_PLANS = [
     {"ghs": 5, "sms": 25},
@@ -293,6 +333,9 @@ def normalize_phone_number(raw: str):
     return s
 
 
+ADMIN_PHONE = normalize_phone_number("0243951661")
+
+
 def hash_password(password: str, salt_hex: Optional[str] = None):
     if salt_hex:
         salt = bytes.fromhex(salt_hex)
@@ -309,27 +352,47 @@ def verify_password(password: str, password_hash_hex: str, salt_hex: str):
 
 def load_users_from_disk():
     try:
+        if _pg_enabled():
+            _pg_init_schema()
+            data = _pg_kv_get("store")
+            if isinstance(data, dict):
+                if not isinstance(data.get("version"), int):
+                    data["version"] = 1
+                if not isinstance(data.get("users"), dict):
+                    data["users"] = {}
+                if not isinstance(data.get("special_day_sender_ids"), list):
+                    data["special_day_sender_ids"] = []
+                if not isinstance(data.get("admin_templates"), list):
+                    data["admin_templates"] = []
+                return data
+            return {"version": 1, "users": {}, "special_day_sender_ids": [], "admin_templates": []}
         if not USERS_FILE.exists():
             return {"version": 1, "users": {}, "special_day_sender_ids": [], "admin_templates": []}
         raw = USERS_FILE.read_text(encoding="utf-8")
         data = json.loads(raw)
         if not isinstance(data, dict):
             return {"version": 1, "users": {}, "special_day_sender_ids": [], "admin_templates": []}
+        if not isinstance(data.get("version"), int):
+            data["version"] = 1
         users = data.get("users")
         if not isinstance(users, dict):
-            users = {}
+            data["users"] = {}
         special_days = data.get("special_day_sender_ids")
         if not isinstance(special_days, list):
-            special_days = []
+            data["special_day_sender_ids"] = []
         admin_templates = data.get("admin_templates")
         if not isinstance(admin_templates, list):
-            admin_templates = []
-        return {"version": 1, "users": users, "special_day_sender_ids": special_days, "admin_templates": admin_templates}
+            data["admin_templates"] = []
+        return data
     except Exception:
         return {"version": 1, "users": {}, "special_day_sender_ids": [], "admin_templates": []}
 
 
 def save_users_to_disk(store: dict):
+    if _pg_enabled():
+        _pg_init_schema()
+        _pg_kv_set("store", store)
+        return
     tmp = USERS_FILE.with_suffix(".json.tmp")
     payload = json.dumps(store, ensure_ascii=False)
     tmp.write_text(payload, encoding="utf-8")
@@ -349,6 +412,40 @@ if not isinstance(HOME_ADS, list):
 SPECIAL_ADS = STORE.get("special_ads") if isinstance(STORE, dict) else None
 if not isinstance(SPECIAL_ADS, list):
     SPECIAL_ADS = []
+
+def _clean_preview_message(value):
+    if value is None:
+        return ""
+    s = str(value)
+    if s.strip().lower() == "none":
+        return ""
+    return s
+
+HOME_PREVIEW_MESSAGE = _clean_preview_message(STORE.get("home_preview_message") if isinstance(STORE, dict) else None)
+SPECIAL_PREVIEW_MESSAGE = _clean_preview_message(STORE.get("special_preview_message") if isinstance(STORE, dict) else None)
+
+def _clean_trusted_brands(value):
+    items = value if isinstance(value, list) else []
+    out = []
+    seen = set()
+    for it in items:
+        if not isinstance(it, dict):
+            continue
+        name = " ".join(str(it.get("name") or "").strip().split())
+        logo = str(it.get("logo") or "").strip()
+        if not name:
+            continue
+        k = name.lower()
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append({"name": name, "logo": logo})
+    return out
+
+TRUSTED_BRANDS = _clean_trusted_brands(STORE.get("trusted_brands") if isinstance(STORE, dict) else [])
+if STORE.get("trusted_brands") != TRUSTED_BRANDS:
+    STORE["trusted_brands"] = TRUSTED_BRANDS
+    save_users_to_disk(STORE)
 
 _admin_templates_changed = False
 _admin_seen = set()
@@ -424,22 +521,6 @@ if _changed or STORE.get("special_day_sender_ids") != SPECIAL_DAY_SENDER_IDS:
     STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
     save_users_to_disk(STORE)
 
-if not USERS.get("admin"):
-    now = utc_now_iso()
-    hp = hash_password("admin1234")
-    USERS["admin"] = {
-        "username": "admin",
-        "brandname": "I LOVE U",
-        "password_hash": hp["hash"],
-        "salt": hp["salt"],
-        "is_admin": True,
-        "disabled": False,
-        "templates": [],
-        "created_at": now,
-    }
-    STORE["users"] = USERS
-    save_users_to_disk(STORE)
-
 if not bool(STORE.get("free_flag_migrated_v1")):
     _free_flag_changed = False
     for _uname, _u in USERS.items():
@@ -459,6 +540,13 @@ if not bool(STORE.get("free_flag_migrated_v1")):
 
 def append_sms_log(entry: dict):
     try:
+        if _pg_enabled():
+            _pg_init_schema()
+            payload = json.dumps(entry, ensure_ascii=False)
+            conn = _pg_conn()
+            with conn.cursor() as cur:
+                cur.execute("INSERT INTO bh_sms_logs(entry) VALUES (%s::jsonb)", (payload,))
+            return
         line = json.dumps(entry, ensure_ascii=False)
         with SMS_LOG_LOCK:
             with open(SMS_LOG_FILE, "a", encoding="utf-8") as f:
@@ -469,6 +557,9 @@ def append_sms_log(entry: dict):
 
 def ensure_user_defaults(user: dict):
     changed = False
+    if str(user.get("username") or "") == ADMIN_PHONE and not bool(user.get("is_admin")):
+        user["is_admin"] = True
+        changed = True
     if "disabled" not in user:
         user["disabled"] = False
         changed = True
@@ -493,6 +584,14 @@ def ensure_user_defaults(user: dict):
 
 def load_contacts():
     try:
+        if _pg_enabled():
+            _pg_init_schema()
+            data = _pg_kv_get("contacts")
+            if isinstance(data, dict) and isinstance(data.get("contacts"), dict):
+                return {"version": 1, "contacts": data.get("contacts") or {}}
+            if isinstance(data, dict):
+                return {"version": 1, "contacts": data}
+            return {"version": 1, "contacts": {}}
         if not CONTACTS_FILE.exists():
             return {"version": 1, "contacts": {}}
         raw = CONTACTS_FILE.read_text(encoding="utf-8")
@@ -508,6 +607,10 @@ def load_contacts():
 
 
 def save_contacts(contacts):
+    if _pg_enabled():
+        _pg_init_schema()
+        _pg_kv_set("contacts", {"version": 1, "contacts": contacts})
+        return
     tmp = CONTACTS_FILE.with_suffix(".json.tmp")
     payload = json.dumps({"version": 1, "contacts": contacts}, ensure_ascii=False)
     tmp.write_text(payload, encoding="utf-8")
@@ -748,9 +851,46 @@ class Handler(BaseHTTPRequestHandler):
             session = self.get_session()
             if session and not session.get("username"):
                 session = None
-            if not session:
-                return self.send_json(200, {"status": "success", "home_ads": list(HOME_ADS), "special_ads": list(SPECIAL_ADS)})
-            return self.send_json(200, {"status": "success", "home_ads": list(HOME_ADS), "special_ads": list(SPECIAL_ADS)})
+            out = {
+                "status": "success",
+                "home_ads": list(HOME_ADS),
+                "special_ads": list(SPECIAL_ADS),
+                "home_preview_message": str(HOME_PREVIEW_MESSAGE or ""),
+                "special_preview_message": str(SPECIAL_PREVIEW_MESSAGE or ""),
+            }
+            return self.send_json(200, out)
+
+        if path == "/api/public/trusted-brands":
+            out = []
+            for b in list(TRUSTED_BRANDS):
+                if not isinstance(b, dict):
+                    continue
+                name = " ".join(str(b.get("name") or "").strip().split())
+                logo = str(b.get("logo") or "").strip()
+                if name:
+                    out.append({"name": name, "logo": logo})
+            return self.send_json(200, {"status": "success", "brands": out[:60], "count": len(out)})
+
+        if path == "/api/public/brands":
+            brands = set()
+            with USERS_LOCK:
+                users = list(USERS.values())
+            for user in users:
+                if not isinstance(user, dict):
+                    continue
+                sender_ids = user.get("sender_ids") or []
+                if not isinstance(sender_ids, list):
+                    continue
+                for s in sender_ids:
+                    if not isinstance(s, dict):
+                        continue
+                    if s.get("status") != "approved":
+                        continue
+                    name = " ".join(str(s.get("name") or "").strip().split())
+                    if name:
+                        brands.add(name)
+            out = sorted(brands, key=lambda x: x.lower())
+            return self.send_json(200, {"status": "success", "brands": out[:60], "count": len(out)})
 
         if path == "/api/templates":
             session = self.require_session()
@@ -941,6 +1081,30 @@ class Handler(BaseHTTPRequestHandler):
             if limit > 200:
                 limit = 200
 
+            if _pg_enabled():
+                try:
+                    _pg_init_schema()
+                    conn = _pg_conn()
+                    rows = []
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT entry FROM bh_sms_logs ORDER BY id DESC LIMIT %s", (limit,))
+                        rows = cur.fetchall() or []
+                    out = []
+                    for r in rows:
+                        if not r:
+                            continue
+                        v = r[0]
+                        if isinstance(v, str):
+                            try:
+                                v = json.loads(v)
+                            except Exception:
+                                continue
+                        if isinstance(v, dict):
+                            out.append(v)
+                    return self.send_json(200, {"status": "success", "logs": out})
+                except Exception:
+                    return self.send_json(500, {"status": "error", "message": "Failed to read SMS logs"})
+
             lines = []
             try:
                 if SMS_LOG_FILE.exists():
@@ -961,6 +1125,123 @@ class Handler(BaseHTTPRequestHandler):
                     continue
             out.reverse()
             return self.send_json(200, {"status": "success", "logs": out})
+
+        if path == "/api/admin/stats/users":
+            session = self.require_session()
+            if not session:
+                return
+            if not session.get("is_admin"):
+                return self.send_json(403, {"status": "error", "message": "Forbidden"})
+
+            parsed = urllib.parse.urlparse(self.path)
+            qs = urllib.parse.parse_qs(parsed.query or "")
+            try:
+                days = int((qs.get("days") or ["0"])[0])
+            except Exception:
+                days = 0
+            if days < 0:
+                days = 0
+            if days > 365:
+                days = 365
+
+            cutoff = None
+            if days > 0:
+                cutoff = utc_now_ts() - (days * 86400)
+
+            try:
+                with USERS_LOCK:
+                    users_snapshot = {str(k): (v.copy() if isinstance(v, dict) else None) for k, v in USERS.items()}
+            except Exception:
+                users_snapshot = {}
+
+            lines = []
+            try:
+                if SMS_LOG_FILE.exists():
+                    with SMS_LOG_LOCK:
+                        with open(SMS_LOG_FILE, "r", encoding="utf-8") as f:
+                            lines = f.readlines()
+            except Exception:
+                lines = []
+            if len(lines) > 20000:
+                lines = lines[-20000:]
+
+            totals = {}
+            total_events = 0
+            total_recipients = 0
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except Exception:
+                    continue
+                if not isinstance(entry, dict):
+                    continue
+                ts = str(entry.get("ts") or "")
+                if cutoff is not None and ts:
+                    try:
+                        dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+                        if dt.tzinfo is None:
+                            dt = dt.replace(tzinfo=timezone.utc)
+                        if int(dt.timestamp()) < int(cutoff):
+                            continue
+                    except Exception:
+                        continue
+                username = str(entry.get("username") or "").strip()
+                if not username:
+                    continue
+                to_list = entry.get("to")
+                if isinstance(to_list, list):
+                    rc = len([x for x in to_list if x])
+                else:
+                    rc = 1
+                brand = str(entry.get("brandname") or "").strip()
+                total_events += 1
+                total_recipients += rc
+                cur = totals.get(username) or {"username": username, "total_sends": 0, "total_recipients": 0, "last_sent": "", "brandname": ""}
+                cur["total_sends"] = int(cur.get("total_sends") or 0) + 1
+                cur["total_recipients"] = int(cur.get("total_recipients") or 0) + int(rc)
+                if brand and not cur.get("brandname"):
+                    cur["brandname"] = brand
+                if ts and (not cur.get("last_sent") or str(ts) > str(cur.get("last_sent") or "")):
+                    cur["last_sent"] = ts
+                totals[username] = cur
+
+            out = []
+            for uname, agg in totals.items():
+                user = users_snapshot.get(str(uname))
+                name = ""
+                approved_brand = ""
+                is_admin = False
+                if isinstance(user, dict):
+                    name = str(user.get("name") or "")
+                    is_admin = bool(user.get("is_admin"))
+                    sender_ids = list(user.get("sender_ids") or [])
+                    approved = [s for s in sender_ids if isinstance(s, dict) and s.get("status") == "approved" and s.get("name")]
+                    approved_brand = (approved[0].get("name") if approved else "") or ""
+                row = {
+                    "username": agg.get("username"),
+                    "name": name,
+                    "brandname": approved_brand or agg.get("brandname") or "",
+                    "is_admin": is_admin,
+                    "total_sends": int(agg.get("total_sends") or 0),
+                    "total_recipients": int(agg.get("total_recipients") or 0),
+                    "last_sent": agg.get("last_sent") or "",
+                }
+                out.append(row)
+            out.sort(key=lambda x: (-(int(x.get("total_recipients") or 0)), -(int(x.get("total_sends") or 0)), str(x.get("username") or "")))
+            return self.send_json(
+                200,
+                {
+                    "status": "success",
+                    "days": days,
+                    "total_events": total_events,
+                    "total_recipients": total_recipients,
+                    "top_users": out[:20],
+                    "count_users": len(out),
+                },
+            )
 
         if path == "/api/paystack/verify":
             session = self.require_session()
@@ -1059,11 +1340,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(400, {"status": "error", "message": "Invalid JSON"})
 
             raw_username = str(body.get("username", ""))
-            username = normalize_username(raw_username)
-            phone_guess = normalize_phone_number(raw_username)
-            if phone_guess and phone_guess.isdigit() and 8 <= len(phone_guess) <= 15 and phone_guess in USERS:
-                username = phone_guess
+            username = normalize_phone_number(raw_username)
             password = str(body.get("password", ""))
+            if not username or not (username.isdigit() and 8 <= len(username) <= 15):
+                return self.send_json(400, {"status": "error", "message": "Invalid phone number"})
             if not username or not password:
                 return self.send_json(400, {"status": "error", "message": "Username and password are required"})
 
@@ -1307,7 +1587,7 @@ class Handler(BaseHTTPRequestHandler):
                     "brandname": "",
                     "password_hash": hp["hash"],
                     "salt": hp["salt"],
-                    "is_admin": False,
+                    "is_admin": bool(phone == ADMIN_PHONE),
                     "disabled": False,
                     "is_free": False,
                     "templates": [],
@@ -1593,7 +1873,11 @@ class Handler(BaseHTTPRequestHandler):
             if body is None:
                 return self.send_json(400, {"status": "error", "message": "Invalid JSON"})
 
-            new_username = normalize_username(str(body.get("username", "")))
+            raw_new_username = str(body.get("username", ""))
+            new_username = normalize_username(raw_new_username)
+            phone_guess = normalize_phone_number(raw_new_username)
+            if phone_guess and phone_guess.isdigit() and 8 <= len(phone_guess) <= 15:
+                new_username = phone_guess
             new_password = str(body.get("password", ""))
             new_brandname = normalize_sender_id(str(body.get("brandname", "")))
 
@@ -1627,7 +1911,7 @@ class Handler(BaseHTTPRequestHandler):
                     "brandname": "",
                     "password_hash": hp["hash"],
                     "salt": hp["salt"],
-                    "is_admin": False,
+                    "is_admin": bool(new_username == ADMIN_PHONE),
                     "disabled": False,
                     "is_free": False,
                     "templates": [],
@@ -1646,7 +1930,7 @@ class Handler(BaseHTTPRequestHandler):
                 200,
                 {
                     "status": "success",
-                    "user": {"username": new_username, "is_admin": False},
+                    "user": {"username": new_username, "is_admin": bool(new_username == ADMIN_PHONE)},
                 },
             )
 
@@ -1741,6 +2025,41 @@ class Handler(BaseHTTPRequestHandler):
 
             return self.send_json(200, {"status": "success", "username": target_username})
 
+        if path == "/api/admin/change-password":
+            session = self.require_session()
+            if not session:
+                return
+            username = normalize_username(str(session.get("username") or ""))
+            if not username:
+                return self.send_json(401, {"status": "error", "message": "Not logged in"})
+
+            body = self.read_json()
+            if body is None:
+                return self.send_json(400, {"status": "error", "message": "Invalid JSON"})
+
+            current_password = str(body.get("current_password", ""))
+            new_password = str(body.get("new_password", ""))
+            if not current_password or not new_password:
+                return self.send_json(400, {"status": "error", "message": "Current and new password are required"})
+            if len(new_password) < 6:
+                return self.send_json(400, {"status": "error", "message": "Password must be at least 6 characters"})
+
+            with USERS_LOCK:
+                u = USERS.get(username)
+                if not isinstance(u, dict):
+                    return self.send_json(404, {"status": "error", "message": "User not found"})
+                if not verify_password(current_password, str(u.get("password_hash", "")), str(u.get("salt", ""))):
+                    return self.send_json(400, {"status": "error", "message": "Current password is incorrect"})
+                hp = hash_password(new_password)
+                u["password_hash"] = hp["hash"]
+                u["salt"] = hp["salt"]
+                USERS[username] = u
+                STORE["users"] = USERS
+                STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
+                save_users_to_disk(STORE)
+
+            return self.send_json(200, {"status": "success", "username": username})
+
         if path == "/api/admin/users/update-brandname":
             session = self.require_session()
             if not session:
@@ -1787,15 +2106,20 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not session.get("is_admin"):
                 return self.send_json(403, {"status": "error", "message": "Forbidden"})
+            global HOME_PREVIEW_MESSAGE
             body = self.read_json()
             if body is None:
                 return self.send_json(400, {"status": "error", "message": "Invalid JSON"})
             text = str(body.get("text", ""))
+            preview_message = body.get("preview_message", None)
             posts = normalize_ads_lines(text)
             HOME_ADS[:] = posts
             STORE["home_ads"] = HOME_ADS
+            if preview_message is not None:
+                HOME_PREVIEW_MESSAGE = str(preview_message)
+                STORE["home_preview_message"] = HOME_PREVIEW_MESSAGE
             save_users_to_disk(STORE)
-            return self.send_json(200, {"status": "success", "home_ads": list(HOME_ADS)})
+            return self.send_json(200, {"status": "success", "home_ads": list(HOME_ADS), "home_preview_message": str(HOME_PREVIEW_MESSAGE or "")})
 
         if path == "/api/admin/ads/special":
             session = self.require_session()
@@ -1803,15 +2127,36 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if not session.get("is_admin"):
                 return self.send_json(403, {"status": "error", "message": "Forbidden"})
+            global SPECIAL_PREVIEW_MESSAGE
             body = self.read_json()
             if body is None:
                 return self.send_json(400, {"status": "error", "message": "Invalid JSON"})
             text = str(body.get("text", ""))
+            preview_message = body.get("preview_message", None)
             posts = normalize_ads_lines(text)
             SPECIAL_ADS[:] = posts
             STORE["special_ads"] = SPECIAL_ADS
+            if preview_message is not None:
+                SPECIAL_PREVIEW_MESSAGE = str(preview_message)
+                STORE["special_preview_message"] = SPECIAL_PREVIEW_MESSAGE
             save_users_to_disk(STORE)
-            return self.send_json(200, {"status": "success", "special_ads": list(SPECIAL_ADS)})
+            return self.send_json(200, {"status": "success", "special_ads": list(SPECIAL_ADS), "special_preview_message": str(SPECIAL_PREVIEW_MESSAGE or "")})
+
+        if path == "/api/admin/trusted-brands":
+            session = self.require_session()
+            if not session:
+                return
+            if not session.get("is_admin"):
+                return self.send_json(403, {"status": "error", "message": "Forbidden"})
+            global TRUSTED_BRANDS
+            body = self.read_json()
+            if body is None:
+                return self.send_json(400, {"status": "error", "message": "Invalid JSON"})
+            items = body.get("brands")
+            TRUSTED_BRANDS = _clean_trusted_brands(items)
+            STORE["trusted_brands"] = TRUSTED_BRANDS
+            save_users_to_disk(STORE)
+            return self.send_json(200, {"status": "success", "brands": list(TRUSTED_BRANDS), "count": len(TRUSTED_BRANDS)})
 
         if path == "/api/admin/templates/add":
             session = self.require_session()

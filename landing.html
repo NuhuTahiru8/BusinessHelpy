@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AyiSun SMS | Branded SMS for every business</title>
+    <meta name="description" content="AyiSun SMS helps businesses reach customers directly with branded SMS. Create a Sender ID, save templates, send bulk SMS, and track your balance.">
+    <link rel="canonical" href="https://sms.ayisun.com/landing.html">
+    <meta property="og:title" content="AyiSun SMS | Branded SMS for every business">
+    <meta property="og:description" content="Reach customers directly with branded SMS. Create a Sender ID, save templates, and send bulk SMS.">
+    <meta property="og:url" content="https://sms.ayisun.com/landing.html">
+    <meta property="og:type" content="website">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20128%20128%22%3E%3Crect%20width%3D%22128%22%20height%3D%22128%22%20rx%3D%2226%22%20fill%3D%22%23060b14%22/%3E%3Cpath%20d%3D%22M34%2092%20L54%2030%20L74%2092%20Z%22%20fill%3D%22%23ffffff%22/%3E%3Cpath%20d%3D%22M86%2036%20c-12%200-22%209-22%2020%200%2016%2019%2016%2019%2026%200%206-5%2010-11%2010%20c-7%200-12-4-14-10%20l-12%206%20c5%2012%2015%2018%2027%2018%2015%200%2026-10%2026-24%200-18-19-18-19-26%200-5%204-8%2010-8%206%200%2010%203%2012%207%20l12-6%20c-4-9-13-13-26-13%20Z%22%20fill%3D%22%23ffffff%22/%3E%3C/svg%3E" type="image/svg+xml">
+    <link rel="icon" href="/favicon.avif" type="image/avif">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        :root {
+            --lp-bg0: #060b14;
+            --lp-bg1: #070f1c;
+            --lp-card: rgba(255, 255, 255, 0.05);
+            --lp-line: rgba(255, 255, 255, 0.12);
+            --lp-ink: rgba(245, 248, 255, 0.98);
+            --lp-muted: rgba(245, 248, 255, 0.68);
+            --lp-accent: #b9f60a;
+            --lp-accent-2: rgba(185, 246, 10, 0.20);
+        }
+        body {
+            background:
+                radial-gradient(900px 380px at 50% 8%, rgba(185, 246, 10, 0.10), rgba(185, 246, 10, 0) 60%),
+                radial-gradient(820px 420px at 90% 16%, rgba(255, 105, 180, 0.14), rgba(255, 105, 180, 0) 55%),
+                radial-gradient(860px 520px at 14% 22%, rgba(46, 134, 255, 0.12), rgba(46, 134, 255, 0) 55%),
+                linear-gradient(180deg, var(--lp-bg0), var(--lp-bg1));
+            color: var(--lp-ink);
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Noto Sans", "Liberation Sans", sans-serif;
+        }
+        .lp-nav { position: sticky; top: 0; z-index: 5; background: rgba(6, 11, 20, 0.72); backdrop-filter: blur(14px); border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+        .lp-nav-inner { width: 100%; max-width: 1100px; margin: 0 auto; padding: 14px 20px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+        .lp-brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+        .lp-logo { width: 36px; height: 36px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.06); display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+        .lp-logo svg { width: 36px; height: 36px; display: block; }
+        .lp-brand .t1 { font-weight: 950; font-size: 18px; letter-spacing: 0.2px; }
+        .lp-links { display: flex; align-items: center; justify-content: center; gap: 18px; flex: 1; }
+        .lp-link { color: var(--lp-muted); text-decoration: none; font-weight: 800; font-size: 14px; padding: 8px 10px; border-radius: 12px; border: 1px solid transparent; }
+        .lp-link:hover { color: var(--lp-ink); border-color: rgba(255, 255, 255, 0.10); background: rgba(255, 255, 255, 0.04); }
+        .lp-actions { display: flex; gap: 10px; align-items: center; justify-content: flex-end; }
+        .lp-btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 14px; padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.14); text-decoration: none; font-weight: 950; font-size: 14px; background: rgba(255, 255, 255, 0.04); color: var(--lp-ink); }
+        .lp-btn:hover { background: rgba(255, 255, 255, 0.08); }
+        .lp-btn.primary { border-color: rgba(185, 246, 10, 0.35); background: rgba(185, 246, 10, 0.16); color: var(--lp-accent); }
+        .lp-btn.primary:hover { background: rgba(185, 246, 10, 0.22); }
+        .lp-wrap { width: 100%; max-width: 1100px; margin: 0 auto; padding: 26px 20px 56px; box-sizing: border-box; }
+
+        .lp-hero { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 44px 10px 18px; }
+        .lp-hero-logo { width: min(520px, 92vw); margin-bottom: 16px; }
+        .lp-hero-logo svg { width: 100%; height: auto; display: block; }
+        .lp-rating { display: inline-flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.10); color: var(--lp-muted); font-weight: 900; font-size: 13px; }
+        .lp-rating .name { color: var(--lp-ink); font-weight: 950; }
+        .lp-stars { display: inline-flex; gap: 2px; color: var(--lp-accent); }
+        .lp-rating small { color: rgba(245, 248, 255, 0.62); font-weight: 800; font-size: 12px; }
+
+        .lp-hero h1 { margin: 18px 0 0; font-weight: 980; font-size: 56px; line-height: 1.04; letter-spacing: -1px; max-width: 980px; }
+        .lp-accent { color: var(--lp-accent); }
+        .lp-sub { margin: 14px 0 0; max-width: 780px; color: rgba(245, 248, 255, 0.70); font-size: 16px; line-height: 1.65; }
+        .lp-cta { margin-top: 18px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+        .lp-availability { margin-top: 12px; display: inline-flex; align-items: center; gap: 10px; color: rgba(245, 248, 255, 0.65); font-weight: 900; font-size: 13px; }
+        .lp-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--lp-accent); box-shadow: 0 0 0 4px rgba(185, 246, 10, 0.12); }
+
+        .lp-trust { margin-top: 34px; width: 100%; }
+        .lp-trust-title { color: rgba(245, 248, 255, 0.72); font-weight: 900; font-size: 13px; letter-spacing: 0.02em; }
+        .lp-brands { margin-top: 12px; overflow: hidden; padding: 6px 0; position: relative; border-radius: 18px; }
+        .lp-brands::before, .lp-brands::after { content: ""; position: absolute; top: 0; bottom: 0; width: 64px; pointer-events: none; z-index: 1; }
+        .lp-brands::before { left: 0; background: linear-gradient(90deg, rgba(6,11,20,0.96), rgba(6,11,20,0)); }
+        .lp-brands::after { right: 0; background: linear-gradient(270deg, rgba(6,11,20,0.96), rgba(6,11,20,0)); }
+        .lp-brands-track { display: flex; gap: 12px; width: max-content; will-change: transform; animation: lpMarquee 18s linear infinite; padding: 0 64px; }
+        .lp-brands:hover .lp-brands-track { animation-play-state: paused; }
+        @keyframes lpMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .lp-brand-pill { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.04); color: rgba(245, 248, 255, 0.86); font-weight: 950; font-size: 14px; white-space: nowrap; }
+        .lp-brand-pill .mark { width: 28px; height: 28px; border-radius: 10px; background: rgba(185, 246, 10, 0.14); border: 1px solid rgba(185, 246, 10, 0.22); display: inline-flex; align-items: center; justify-content: center; color: var(--lp-accent); font-weight: 950; }
+        .lp-brand-pill img { width: 28px; height: 28px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.16); object-fit: cover; background: rgba(255, 255, 255, 0.06); display: block; animation: lpLogoSpin 3.4s linear infinite; }
+        @keyframes lpLogoSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) { .lp-brands-track, .lp-brand-pill img { animation: none !important; } }
+
+        .lp-section { margin-top: 34px; }
+        .lp-section h2 { margin: 0 0 12px; font-weight: 980; font-size: 18px; letter-spacing: -0.2px; }
+        .lp-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        .lp-feature { border: 1px solid rgba(255, 255, 255, 0.10); border-radius: 18px; background: rgba(255, 255, 255, 0.04); padding: 14px; box-shadow: 0 10px 22px rgba(0,0,0,0.22); }
+        .lp-feature-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .lp-ico { width: 38px; height: 38px; border-radius: 14px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(185, 246, 10, 0.22); background: rgba(185, 246, 10, 0.10); color: var(--lp-accent); }
+        .lp-ico.pink { border-color: rgba(255, 105, 180, 0.28); background: rgba(255, 105, 180, 0.10); color: rgba(255, 105, 180, 0.92); }
+        .lp-feature .h { font-weight: 950; font-size: 14px; margin: 0; }
+        .lp-feature .p { color: rgba(245, 248, 255, 0.72); font-size: 13px; line-height: 1.55; margin: 0; }
+
+        .lp-pricing { border: 1px solid rgba(255, 255, 255, 0.10); background: rgba(255, 255, 255, 0.03); border-radius: 18px; padding: 14px; }
+        .lp-pricing .plans-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .lp-pricing .plan-card { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.12); box-shadow: 0 10px 22px rgba(0,0,0,0.22); }
+        .lp-pricing .plan-name { color: rgba(245, 248, 255, 0.92); }
+        .lp-pricing .plan-price { color: var(--lp-accent); }
+        .lp-pricing .plan-meta { color: rgba(245, 248, 255, 0.70); }
+        .lp-footer { margin-top: 34px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.10); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; color: rgba(245, 248, 255, 0.60); font-size: 12px; }
+        @media screen and (max-width: 900px) { .lp-links { display: none; } .lp-grid { grid-template-columns: 1fr; } .lp-pricing .plans-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lp-hero h1 { font-size: 38px; } }
+        @media screen and (max-width: 520px) { .lp-pricing .plans-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="lp-nav">
+        <div class="lp-nav-inner">
+            <a class="lp-brand" href="landing.html">
+                <span class="lp-logo" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+                        <rect x="0" y="0" width="48" height="48" rx="14" fill="#060b14"/>
+                        <path d="M13 35 L20 13 L27 35 Z" fill="#ffffff"/>
+                        <path d="M33 15 c-5 0-9 3-9 7 0 5 7 5 7 8 0 2-2 3-4 3-3 0-5-2-6-4 l-5 2 c2 5 6 7 11 7 6 0 10-4 10-9 0-7-7-7-7-9 0-2 2-3 4-3 2 0 3 1 4 2 l5-2 c-2-4-5-5-10-5 Z" fill="#ffffff"/>
+                    </svg>
+                </span>
+                <div class="t1">AyiSun SMS</div>
+            </a>
+
+            <div class="lp-links" aria-label="Landing navigation">
+                <a class="lp-link" href="#project">Project</a>
+                <a class="lp-link" href="#benefits">Benefits</a>
+                <a class="lp-link" href="#services">Services</a>
+                <a class="lp-link" href="#pricing">Pricing</a>
+            </div>
+
+            <div class="lp-actions">
+                <a class="lp-btn" href="index.html">Login</a>
+                <a class="lp-btn primary" href="index.html?mode=signup">Get Started</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="lp-wrap">
+        <div class="lp-hero" id="project">
+            <div class="lp-hero-logo" aria-label="AyiSun SMS logo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 240">
+                    <defs>
+                        <linearGradient id="lpLogoCard" x1="0" y1="0" x2="1" y2="1">
+                            <stop offset="0" stop-color="rgba(255,255,255,0.06)"/>
+                            <stop offset="1" stop-color="rgba(255,255,255,0.02)"/>
+                        </linearGradient>
+                        <linearGradient id="lpAccent" x1="0" y1="0" x2="1" y2="0">
+                            <stop offset="0" stop-color="#b9f60a"/>
+                            <stop offset="1" stop-color="rgba(185,246,10,0.55)"/>
+                        </linearGradient>
+                        <filter id="lpSoftShadow" x="-30%" y="-30%" width="160%" height="160%">
+                            <feDropShadow dx="0" dy="10" stdDeviation="16" flood-color="rgba(0,0,0,0.45)"/>
+                        </filter>
+                    </defs>
+
+                    <rect width="980" height="240" rx="28" fill="url(#lpLogoCard)" stroke="rgba(255,255,255,0.12)" filter="url(#lpSoftShadow)"/>
+                    <circle cx="138" cy="104" r="74" fill="rgba(185,246,10,0.10)"/>
+                    <circle cx="168" cy="88" r="56" fill="rgba(255,105,180,0.10)"/>
+
+                    <g font-family="Arial, Helvetica, sans-serif" font-weight="900">
+                        <text x="72" y="150" font-size="112" letter-spacing="-3" fill="#ffffff">AS</text>
+                        <rect x="258" y="62" width="4" height="126" rx="2" fill="url(#lpAccent)"/>
+                        <text x="296" y="150" font-size="90" letter-spacing="4" fill="#ffffff">AYISUN</text>
+                        <g transform="translate(748,60)">
+                            <rect x="0" y="0" width="126" height="136" rx="26" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.14)"/>
+                            <rect x="22" y="10" width="82" height="116" rx="22" fill="none" stroke="#ffffff" stroke-width="5"/>
+                            <rect x="50" y="22" width="26" height="8" rx="4" fill="rgba(255,255,255,0.90)"/>
+                            <g transform="translate(30,56)">
+                                <rect x="0" y="0" width="66" height="44" rx="14" fill="#b9f60a"/>
+                                <path d="M16 44 L26 44 L20 56 Z" fill="#b9f60a"/>
+                                <text x="12" y="30" font-size="24" letter-spacing="1" fill="#060b14">SMS</text>
+                            </g>
+                        </g>
+                    </g>
+
+                    <text x="296" y="208" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="24" fill="rgba(245,248,255,0.72)" letter-spacing="1">WE CAN MAKE THEM CHOOSE YOU</text>
+                </svg>
+            </div>
+            <div class="lp-rating" aria-label="Rating">
+                <span class="name">Clutch</span>
+                <span class="lp-stars" aria-hidden="true">
+                    <i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i><i class="fa fa-star"></i>
+                </span>
+                <small>4.9 Rating From 300+ Happy Clients</small>
+            </div>
+            <h1>Your Business Needs More Than a Message—It Needs <span class="lp-accent">Growth</span>.</h1>
+            <p class="lp-sub">Use AyiSun SMS to promote your brand, send reminders, announce new stock, and reach customers directly with a trusted Sender ID.</p>
+            <div class="lp-cta">
+                <a class="lp-btn primary" href="index.html?mode=signup">Create Account</a>
+                <a class="lp-btn" href="#pricing">View Pricing</a>
+            </div>
+            <div class="lp-availability"><span class="lp-dot" aria-hidden="true"></span><span>2 Spots Available</span></div>
+            <div class="lp-trust" aria-label="Trusted brands">
+                <div class="lp-trust-title">Trusted by brands using AyiSun SMS to reach customers</div>
+                <div class="lp-brands" id="lpBrandsRow">
+                    <div class="lp-brands-track" id="lpBrandsTrack">
+                        <div class="lp-brand-pill"><span class="mark">A</span><span>Loading brands…</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="lp-section" id="benefits">
+            <h2>Benefits</h2>
+            <div class="lp-grid">
+                <div class="lp-feature">
+                    <div class="lp-feature-top">
+                        <div class="lp-ico"><i class="fa fa-id-badge" aria-hidden="true"></i></div>
+                        <div class="h" style="margin:0;">Sender ID (Brandname)</div>
+                    </div>
+                    <p class="p">Apply for your Sender ID so your SMS shows your business name, not a random number.</p>
+                </div>
+                <div class="lp-feature">
+                    <div class="lp-feature-top">
+                        <div class="lp-ico pink"><i class="fa fa-file-text-o" aria-hidden="true"></i></div>
+                        <div class="h" style="margin:0;">Templates</div>
+                    </div>
+                    <p class="p">Save frequently used messages. Reuse and edit in one click.</p>
+                </div>
+                <div class="lp-feature">
+                    <div class="lp-feature-top">
+                        <div class="lp-ico"><i class="fa fa-users" aria-hidden="true"></i></div>
+                        <div class="h" style="margin:0;">Bulk sending</div>
+                    </div>
+                    <p class="p">Send to many phone numbers at once for promotions, sales, and announcements.</p>
+                </div>
+                <div class="lp-feature">
+                    <div class="lp-feature-top">
+                        <div class="lp-ico pink"><i class="fa fa-heart" aria-hidden="true"></i></div>
+                        <div class="h" style="margin:0;">Special Day messages</div>
+                    </div>
+                    <p class="p">Send birthday and celebration messages to keep customers engaged.</p>
+                </div>
+                <div class="lp-feature">
+                    <div class="lp-feature-top">
+                        <div class="lp-ico"><i class="fa fa-credit-card" aria-hidden="true"></i></div>
+                        <div class="h" style="margin:0;">Top up plans</div>
+                    </div>
+                    <p class="p">Choose a bundle that matches your business size and campaign frequency.</p>
+                </div>
+                <div class="lp-feature">
+                    <div class="lp-feature-top">
+                        <div class="lp-ico"><i class="fa fa-line-chart" aria-hidden="true"></i></div>
+                        <div class="h" style="margin:0;">Balance tracking</div>
+                    </div>
+                    <p class="p">Always know your remaining SMS and plan your next campaign.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lp-section" id="services">
+            <h2>Services</h2>
+            <div class="lp-grid">
+                <div class="lp-feature">
+                    <div class="lp-feature-top">
+                        <div class="lp-ico"><i class="fa fa-bullhorn" aria-hidden="true"></i></div>
+                        <div class="h">Promotions</div>
+                    </div>
+                    <p class="p">Run flash sales, new stock announcements, and offers that customers actually see.</p>
+                </div>
+                <div class="lp-feature">
+                    <div class="lp-feature-top">
+                        <div class="lp-ico pink"><i class="fa fa-bell" aria-hidden="true"></i></div>
+                        <div class="h">Reminders</div>
+                    </div>
+                    <p class="p">Appointment reminders, payment reminders, and follow-ups to improve repeat business.</p>
+                </div>
+                <div class="lp-feature">
+                    <div class="lp-feature-top">
+                        <div class="lp-ico"><i class="fa fa-calendar" aria-hidden="true"></i></div>
+                        <div class="h">Special Days</div>
+                    </div>
+                    <p class="p">Send birthday and celebration messages that keep customers engaged with your brand.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lp-section" id="pricing">
+            <h2>Top up plans</h2>
+            <div class="lp-pricing">
+                <div class="plans-grid">
+                    <div class="plan-card">
+                        <div class="plan-top">
+                            <div class="plan-name">25 SMS</div>
+                            <div class="plan-price">GHS 5</div>
+                        </div>
+                        <div class="plan-meta">Starter bundle for quick promotions and reminders.</div>
+                    </div>
+                    <div class="plan-card">
+                        <div class="plan-top">
+                            <div class="plan-name">50 SMS</div>
+                            <div class="plan-price">GHS 10</div>
+                        </div>
+                        <div class="plan-meta">For growing businesses reaching more customers.</div>
+                    </div>
+                    <div class="plan-card">
+                        <div class="plan-top">
+                            <div class="plan-name">100 SMS</div>
+                            <div class="plan-price">GHS 20</div>
+                        </div>
+                        <div class="plan-meta">Great for weekly promotions and updates.</div>
+                    </div>
+                    <div class="plan-card">
+                        <div class="plan-top">
+                            <div class="plan-name">250 SMS</div>
+                            <div class="plan-price">GHS 50</div>
+                        </div>
+                        <div class="plan-meta">For consistent campaigns and seasonal sales.</div>
+                    </div>
+                    <div class="plan-card">
+                        <div class="plan-top">
+                            <div class="plan-name">500 SMS</div>
+                            <div class="plan-price">GHS 100</div>
+                        </div>
+                        <div class="plan-meta">Best value for active customer engagement.</div>
+                    </div>
+                    <div class="plan-card">
+                        <div class="plan-top">
+                            <div class="plan-name">700 SMS</div>
+                            <div class="plan-price">GHS 150</div>
+                        </div>
+                        <div class="plan-meta">High volume bundle for bigger campaigns.</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="lp-footer">
+            <div>© <span id="lpYear"></span> AyiSun SMS</div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            var y = document.getElementById('lpYear');
+            if (y) y.textContent = String(new Date().getFullYear());
+
+            var row = document.getElementById('lpBrandsRow');
+            var track = document.getElementById('lpBrandsTrack');
+            if (!row || !track) return;
+
+            function clearRow() {
+                while (track.firstChild) track.removeChild(track.firstChild);
+            }
+
+            function addPill(name, logo) {
+                var pill = document.createElement('div');
+                pill.className = 'lp-brand-pill';
+                if (logo) {
+                    var img = document.createElement('img');
+                    img.alt = '';
+                    img.src = String(logo);
+                    pill.appendChild(img);
+                } else {
+                    var mark = document.createElement('span');
+                    mark.className = 'mark';
+                    mark.textContent = (name ? String(name).slice(0, 1).toUpperCase() : 'A');
+                    pill.appendChild(mark);
+                }
+                var label = document.createElement('span');
+                label.textContent = String(name || '');
+                pill.appendChild(label);
+                track.appendChild(pill);
+            }
+
+            function renderBrands(brands) {
+                var list = Array.isArray(brands) ? brands : [];
+                var clean = [];
+                list.forEach(function(b) {
+                    if (!b) return;
+                    if (typeof b === 'string') {
+                        var s = b.trim();
+                        if (s) clean.push({ name: s, logo: '' });
+                        return;
+                    }
+                    var name = String(b.name || '').trim();
+                    var logo = String(b.logo || '').trim();
+                    if (name) clean.push({ name: name, logo: logo });
+                });
+                clearRow();
+                if (!clean.length) {
+                    addPill('No trusted brands yet', '');
+                    track.style.animation = 'none';
+                    return;
+                }
+                track.style.animation = '';
+                var loop = clean.slice(0, 40);
+                var doubled = loop.concat(loop);
+                doubled.forEach(function(b) { addPill(b.name, b.logo); });
+            }
+
+            fetch('/api/public/trusted-brands', { method: 'GET' })
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    var list = (data && data.status === 'success') ? (data.brands || []) : [];
+                    renderBrands(list);
+                })
+                .catch(function() {
+                    renderBrands([]);
+                });
+        })();
+    </script>
+</body>
+</html>

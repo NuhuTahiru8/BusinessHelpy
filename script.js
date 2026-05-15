@@ -13,6 +13,10 @@ var SUBSCRIPTION_PLANS = [
 var SELECTED_SUBSCRIPTION_SMS = null;
 var HOME_ADS = [];
 var SPECIAL_ADS = [];
+var HOME_PREVIEW_MESSAGE = '';
+var SPECIAL_PREVIEW_MESSAGE = '';
+var TRUSTED_BRANDS = [];
+var _adminStatsDays = 30;
 var _adminAdsTicker = { timeout: null, index: 0, charIndex: 0, list: [], speed: 32, pauseMs: 30000, betweenMs: 220 };
 
 function escapeHtml(str) {
@@ -49,7 +53,7 @@ function setAdminAdsBanner(mode, posts) {
         return;
     }
     banner.style.display = '';
-    kicker.textContent = (mode === 'special') ? 'Love Post' : 'Business Ideas';
+    kicker.textContent = (mode === 'special') ? 'Texting' : 'Business Ideas';
     startAdminAdsTicker(list);
 }
 
@@ -100,11 +104,309 @@ function loadAds() {
             if (res && res.status === 'success') {
                 HOME_ADS = Array.isArray(res.home_ads) ? res.home_ads : [];
                 SPECIAL_ADS = Array.isArray(res.special_ads) ? res.special_ads : [];
+                HOME_PREVIEW_MESSAGE = typeof res.home_preview_message === 'string' ? res.home_preview_message : '';
+                SPECIAL_PREVIEW_MESSAGE = typeof res.special_preview_message === 'string' ? res.special_preview_message : '';
             }
             return { home: HOME_ADS, special: SPECIAL_ADS };
         })
         .catch(function() {
             return { home: HOME_ADS, special: SPECIAL_ADS };
+        });
+}
+
+function loadTrustedBrands() {
+    return fetchJson('/api/public/trusted-brands', { method: 'GET' })
+        .then(function(res) {
+            if (res && res.status === 'success') {
+                TRUSTED_BRANDS = Array.isArray(res.brands) ? res.brands : [];
+            }
+            return TRUSTED_BRANDS;
+        })
+        .catch(function() {
+            return TRUSTED_BRANDS;
+        });
+}
+
+function parseTrustedBrandsText(text) {
+    var raw = String(text || '');
+    var lines = raw.split('\n');
+    var out = [];
+    var seen = {};
+    lines.forEach(function(line) {
+        var t = String(line || '').trim();
+        if (!t) return;
+        var name = '';
+        var logo = '';
+        if (t.indexOf('||') !== -1) {
+            var parts = t.split('||');
+            name = String(parts[0] || '').trim();
+            logo = String(parts.slice(1).join('||') || '').trim();
+        } else if (t.indexOf('|') !== -1) {
+            var parts2 = t.split('|');
+            name = String(parts2[0] || '').trim();
+            logo = String(parts2.slice(1).join('|') || '').trim();
+        } else if (t.indexOf('~~') !== -1) {
+            var parts3 = t.split('~~');
+            name = String(parts3[0] || '').trim();
+            logo = String(parts3.slice(1).join('~~') || '').trim();
+        } else if (t.indexOf('~') !== -1) {
+            var parts4 = t.split('~');
+            name = String(parts4[0] || '').trim();
+            logo = String(parts4.slice(1).join('~') || '').trim();
+        } else {
+            name = t;
+        }
+        name = name.replace(/\s+/g, ' ').trim();
+        if (!name) return;
+        var k = name.toLowerCase();
+        if (seen[k]) return;
+        seen[k] = true;
+        out.push({ name: name, logo: logo });
+    });
+    return out;
+}
+
+function trustedBrandsToText(brands) {
+    var list = Array.isArray(brands) ? brands : [];
+    return list.map(function(b) {
+        if (!b) return '';
+        var name = String(b.name || '').trim();
+        var logo = String(b.logo || '').trim();
+        if (!name) return '';
+        if (logo) return name + ' || ' + logo;
+        return name;
+    }).filter(Boolean).join('\n');
+}
+
+function saveTrustedBrands() {
+    var ta = document.getElementById('adminTrustedBrandsText');
+    var btn = document.getElementById('saveTrustedBrandsBtn');
+    var statusEl = document.getElementById('adminTrustedBrandsStatus');
+    var items = parseTrustedBrandsText(ta ? ta.value : '');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+    renderStatusInto(statusEl, 'success', 'Trusted Brands', 'Saving...');
+    fetchJson('/api/admin/trusted-brands', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brands: items }) })
+        .then(function(res) {
+            if (res.status !== 'success') {
+                renderStatusInto(statusEl, 'error', 'Trusted Brands', res.message || 'Failed to save.');
+                return;
+            }
+            TRUSTED_BRANDS = Array.isArray(res.brands) ? res.brands : TRUSTED_BRANDS;
+            if (ta) { ta.value = trustedBrandsToText(TRUSTED_BRANDS); autoGrowTextarea(ta); }
+            renderStatusInto(statusEl, 'success', 'Trusted Brands', 'Saved.');
+        })
+        .catch(function(err) {
+            renderStatusInto(statusEl, 'error', 'Trusted Brands', err && err.message ? err.message : 'Failed to save.');
+        })
+        .finally(function() {
+            if (btn) { btn.disabled = false; btn.textContent = 'Save Trusted Brands'; }
+        });
+}
+
+function clearTrustedBrands() {
+    var ta = document.getElementById('adminTrustedBrandsText');
+    var btn = document.getElementById('clearTrustedBrandsBtn');
+    var saveBtn = document.getElementById('saveTrustedBrandsBtn');
+    var statusEl = document.getElementById('adminTrustedBrandsStatus');
+    if (btn) { btn.disabled = true; btn.textContent = 'Clearing...'; }
+    if (saveBtn) saveBtn.disabled = true;
+    renderStatusInto(statusEl, 'success', 'Trusted Brands', 'Clearing...');
+    fetchJson('/api/admin/trusted-brands', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ brands: [] }) })
+        .then(function(res) {
+            if (res.status !== 'success') {
+                renderStatusInto(statusEl, 'error', 'Trusted Brands', res.message || 'Failed to clear.');
+                return;
+            }
+            TRUSTED_BRANDS = [];
+            if (ta) { ta.value = ''; autoGrowTextarea(ta); }
+            renderStatusInto(statusEl, 'success', 'Trusted Brands', 'Cleared.');
+        })
+        .catch(function(err) {
+            renderStatusInto(statusEl, 'error', 'Trusted Brands', err && err.message ? err.message : 'Failed to clear.');
+        })
+        .finally(function() {
+            if (btn) { btn.disabled = false; btn.textContent = 'Clear'; }
+            if (saveBtn) saveBtn.disabled = false;
+        });
+}
+
+function computeAdminStats(logs, usersRes, days) {
+    var d = Number(days || 0);
+    if (!isFinite(d)) d = 0;
+    d = Math.max(0, Math.min(365, Math.floor(d)));
+    var cutoff = null;
+    if (d > 0) cutoff = Date.now() - (d * 86400000);
+
+    var usersMap = {};
+    if (usersRes && usersRes.status === 'success' && Array.isArray(usersRes.users)) {
+        usersRes.users.forEach(function(u) {
+            if (!u || !u.username) return;
+            usersMap[String(u.username)] = u;
+        });
+    }
+
+    var totals = {};
+    var totalEvents = 0;
+    var totalRecipients = 0;
+    (Array.isArray(logs) ? logs : []).forEach(function(entry) {
+        if (!entry || !entry.username) return;
+        var ts = String(entry.ts || '');
+        if (cutoff !== null) {
+            var dt = Date.parse(ts);
+            if (!isFinite(dt)) return;
+            if (dt < cutoff) return;
+        }
+        var username = String(entry.username || '').trim();
+        if (!username) return;
+        var toList = entry.to;
+        var rc = Array.isArray(toList) ? toList.filter(Boolean).length : 1;
+        var brand = String(entry.brandname || '').trim();
+        totalEvents += 1;
+        totalRecipients += rc;
+        var cur = totals[username] || { username: username, total_sends: 0, total_recipients: 0, last_sent: '', brandname: '' };
+        cur.total_sends += 1;
+        cur.total_recipients += rc;
+        if (brand && !cur.brandname) cur.brandname = brand;
+        if (ts && (!cur.last_sent || ts > cur.last_sent)) cur.last_sent = ts;
+        totals[username] = cur;
+    });
+
+    var list = Object.keys(totals).map(function(username) {
+        var agg = totals[username] || {};
+        var u = usersMap[username] || {};
+        return {
+            username: username,
+            name: String(u.name || ''),
+            brandname: String(u.brandname || agg.brandname || ''),
+            is_admin: !!u.is_admin,
+            total_sends: Number(agg.total_sends || 0),
+            total_recipients: Number(agg.total_recipients || 0),
+            last_sent: String(agg.last_sent || '')
+        };
+    });
+    list.sort(function(a, b) {
+        if (b.total_recipients !== a.total_recipients) return b.total_recipients - a.total_recipients;
+        if (b.total_sends !== a.total_sends) return b.total_sends - a.total_sends;
+        return String(a.username).localeCompare(String(b.username));
+    });
+    return {
+        status: 'success',
+        days: d,
+        total_events: totalEvents,
+        total_recipients: totalRecipients,
+        count_users: list.length,
+        top_users: list.slice(0, 20)
+    };
+}
+
+function renderAdminStats(res, metaText) {
+    var chart = document.getElementById('adminStatsChart');
+    var statusEl = document.getElementById('adminStatsStatus');
+    if (!chart) return;
+    if (!res || res.status !== 'success') {
+        if (statusEl) renderStatusInto(statusEl, 'error', 'Dashboard', (res && res.message) ? res.message : 'Failed to load stats.');
+        chart.innerHTML = '';
+        return;
+    }
+    var list = Array.isArray(res.top_users) ? res.top_users : [];
+    var max = 0;
+    list.forEach(function(u) {
+        max = Math.max(max, Number(u.total_recipients || 0));
+    });
+    if (!list.length) {
+        if (statusEl) renderStatusInto(statusEl, 'success', 'Dashboard', 'No messages sent yet.');
+        chart.innerHTML = '';
+        return;
+    }
+    if (statusEl) {
+        var meta = 'Users: ' + String(res.count_users || list.length) + '\nMessages: ' + String(res.total_events || 0) + '\nRecipients: ' + String(res.total_recipients || 0);
+        if (metaText) meta = meta + '\n' + String(metaText);
+        renderStatusInto(statusEl, 'success', 'Dashboard', meta);
+    }
+    chart.innerHTML = '<div class="chart-wrap">' + list.map(function(u) {
+        var name = String(u.brandname || u.username || '').trim() || String(u.username || '');
+        var recipients = Number(u.total_recipients || 0);
+        var sends = Number(u.total_sends || 0);
+        var pct = max > 0 ? Math.max(2, Math.round((recipients / max) * 100)) : 0;
+        return (
+            '<div class="chart-row">' +
+                '<div class="chart-left">' +
+                    '<div class="chart-name">' + escapeHtml(name) + '</div>' +
+                    '<div class="chart-sub">' + escapeHtml(String(u.username || '')) + '</div>' +
+                '</div>' +
+                '<div class="chart-mid"><div class="chart-bar" style="width:' + String(pct) + '%"></div></div>' +
+                '<div class="chart-right">' + escapeHtml(String(recipients)) + '<span class="chart-unit"> to</span><div class="chart-mini">' + escapeHtml(String(sends)) + ' msgs</div></div>' +
+            '</div>'
+        );
+    }).join('') + '</div>';
+}
+
+function refreshAdminDashboard(days) {
+    _adminStatsDays = Number(days || 0);
+    var statusEl = document.getElementById('adminStatsStatus');
+    if (statusEl) renderStatusInto(statusEl, 'success', 'Dashboard', 'Loading...');
+    return Promise.all([
+        fetchJson('/api/admin/sms-logs?limit=200', { method: 'GET' }),
+        fetchJson('/api/admin/users', { method: 'GET' })
+    ])
+        .then(function(pair) {
+            var logsRes = pair[0];
+            var usersRes = pair[1];
+            if (!logsRes || logsRes.status !== 'success' || !Array.isArray(logsRes.logs)) {
+                renderAdminStats({ status: 'error', message: (logsRes && logsRes.message) ? logsRes.message : 'Failed to load logs.' });
+                return;
+            }
+            var stats = computeAdminStats(logsRes.logs, usersRes, _adminStatsDays);
+            var meta = 'Based on last ' + String(Math.min(200, logsRes.logs.length)) + ' sends';
+            renderAdminStats(stats, meta);
+        })
+        .catch(function(err) {
+            var chart = document.getElementById('adminStatsChart');
+            if (statusEl) renderStatusInto(statusEl, 'error', 'Dashboard', err && err.message ? err.message : 'Failed to load stats.');
+            if (chart) chart.innerHTML = '';
+        });
+}
+
+function adminChangePassword() {
+    var cur = document.getElementById('adminCurrentPassword');
+    var n1 = document.getElementById('adminNewPassword');
+    var n2 = document.getElementById('adminNewPassword2');
+    var btn = document.getElementById('adminChangePasswordBtn');
+    var statusEl = document.getElementById('adminChangePasswordStatus');
+    var currentPassword = cur ? String(cur.value || '') : '';
+    var newPassword = n1 ? String(n1.value || '') : '';
+    var confirmPassword = n2 ? String(n2.value || '') : '';
+    if (!newPassword || !confirmPassword) {
+        renderStatusInto(statusEl, 'error', 'Password', 'Fill all fields.');
+        return;
+    }
+    if (newPassword !== confirmPassword) {
+        renderStatusInto(statusEl, 'error', 'Password', 'New passwords do not match.');
+        return;
+    }
+    if (newPassword.length < 6) {
+        renderStatusInto(statusEl, 'error', 'Password', 'Password must be at least 6 characters.');
+        return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
+    renderStatusInto(statusEl, 'success', 'Password', 'Updating...');
+    var username = CURRENT_SESSION && CURRENT_SESSION.username ? String(CURRENT_SESSION.username) : '';
+    fetchJson('/api/admin/users/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: username, new_password: newPassword }) })
+        .then(function(res) {
+            if (res.status !== 'success') {
+                renderStatusInto(statusEl, 'error', 'Password', res.message || 'Failed to update.');
+                return;
+            }
+            if (cur) cur.value = '';
+            if (n1) n1.value = '';
+            if (n2) n2.value = '';
+            renderStatusInto(statusEl, 'success', 'Password', 'Updated.');
+        })
+        .catch(function(err) {
+            renderStatusInto(statusEl, 'error', 'Password', err && err.message ? err.message : 'Failed to update.');
+        })
+        .finally(function() {
+            if (btn) { btn.disabled = false; btn.textContent = 'Update Password'; }
         });
 }
 
@@ -128,17 +430,21 @@ function saveHomeAds() {
     var btn = document.getElementById('saveHomeAdsBtn');
     var statusEl = document.getElementById('adminHomeAdsStatus');
     var text = ta ? String(ta.value || '') : '';
+    var previewTa = document.getElementById('adminHomePreviewText');
+    var previewMessage = previewTa ? String(previewTa.value || '') : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
     renderStatusInto(statusEl, 'success', 'Business Ideas', 'Saving...');
-    fetchJson('/api/admin/ads/home', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) })
+    fetchJson('/api/admin/ads/home', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, preview_message: previewMessage }) })
         .then(function(res) {
             if (res.status !== 'success') {
                 renderStatusInto(statusEl, 'error', 'Business Ideas', res.message || 'Failed to save.');
                 return;
             }
             HOME_ADS = Array.isArray(res.home_ads) ? res.home_ads : [];
+            HOME_PREVIEW_MESSAGE = typeof res.home_preview_message === 'string' ? res.home_preview_message : HOME_PREVIEW_MESSAGE;
             renderStatusInto(statusEl, 'success', 'Business Ideas', 'Saved.');
             applyAdsForMode(currentMode());
+            updatePreviewMessage();
         })
         .catch(function(err) {
             renderStatusInto(statusEl, 'error', 'Business Ideas', err && err.message ? err.message : 'Failed to save.');
@@ -153,17 +459,21 @@ function saveSpecialAds() {
     var btn = document.getElementById('saveSpecialAdsBtn');
     var statusEl = document.getElementById('adminSpecialAdsStatus');
     var text = ta ? String(ta.value || '') : '';
+    var previewTa = document.getElementById('adminSpecialPreviewText');
+    var previewMessage = previewTa ? String(previewTa.value || '') : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
     renderStatusInto(statusEl, 'success', 'Special Day Posts', 'Saving...');
-    fetchJson('/api/admin/ads/special', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text }) })
+    fetchJson('/api/admin/ads/special', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, preview_message: previewMessage }) })
         .then(function(res) {
             if (res.status !== 'success') {
                 renderStatusInto(statusEl, 'error', 'Special Day Posts', res.message || 'Failed to save.');
                 return;
             }
             SPECIAL_ADS = Array.isArray(res.special_ads) ? res.special_ads : [];
+            SPECIAL_PREVIEW_MESSAGE = typeof res.special_preview_message === 'string' ? res.special_preview_message : SPECIAL_PREVIEW_MESSAGE;
             renderStatusInto(statusEl, 'success', 'Special Day Posts', 'Saved.');
             applyAdsForMode(currentMode());
+            updatePreviewMessage();
         })
         .catch(function(err) {
             renderStatusInto(statusEl, 'error', 'Special Day Posts', err && err.message ? err.message : 'Failed to save.');
@@ -336,13 +646,74 @@ function autoGrowTextarea(el) {
 }
 
 function updatePreviewMessage() {
-    var messageInput = document.getElementById('Message1');
+    var mode = currentMode();
+    var messageInput = mode === 'special' ? document.getElementById('specialMessage') : document.getElementById('Message1');
     if (!messageInput) return;
-    var messageText = messageInput.value;
+    var messageText = String(messageInput.value || '');
+    var fallback = DEFAULT_PREVIEW_MESSAGE;
+    if (mode === 'special') {
+        fallback = SPECIAL_PREVIEW_MESSAGE || DEFAULT_PREVIEW_MESSAGE;
+    } else {
+        fallback = HOME_PREVIEW_MESSAGE || DEFAULT_PREVIEW_MESSAGE;
+    }
     var messageElements = document.querySelectorAll('.message p');
     messageElements.forEach(function(element) {
-        element.textContent = messageText || DEFAULT_PREVIEW_MESSAGE;
+        element.textContent = messageText || fallback;
     });
+}
+
+function saveHomePreview() {
+    var previewTa = document.getElementById('adminHomePreviewText');
+    var btn = document.getElementById('saveHomePreviewBtn');
+    var statusEl = document.getElementById('adminHomePreviewStatus');
+    var textTa = document.getElementById('adminHomeAdsText');
+    var text = textTa ? String(textTa.value || '') : '';
+    var previewMessage = previewTa ? String(previewTa.value || '') : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+    renderStatusInto(statusEl, 'success', 'Personal Brand Post', 'Saving...');
+    fetchJson('/api/admin/ads/home', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, preview_message: previewMessage }) })
+        .then(function(res) {
+            if (res.status !== 'success') {
+                renderStatusInto(statusEl, 'error', 'Personal Brand Post', res.message || 'Failed to save.');
+                return;
+            }
+            HOME_PREVIEW_MESSAGE = typeof res.home_preview_message === 'string' ? res.home_preview_message : HOME_PREVIEW_MESSAGE;
+            renderStatusInto(statusEl, 'success', 'Personal Brand Post', 'Saved.');
+            updatePreviewMessage();
+        })
+        .catch(function(err) {
+            renderStatusInto(statusEl, 'error', 'Personal Brand Post', err && err.message ? err.message : 'Failed to save.');
+        })
+        .finally(function() {
+            if (btn) { btn.disabled = false; btn.textContent = 'Save Personal Brand Post'; }
+        });
+}
+
+function saveSpecialPreview() {
+    var previewTa = document.getElementById('adminSpecialPreviewText');
+    var btn = document.getElementById('saveSpecialPreviewBtn');
+    var statusEl = document.getElementById('adminSpecialPreviewStatus');
+    var textTa = document.getElementById('adminSpecialAdsText');
+    var text = textTa ? String(textTa.value || '') : '';
+    var previewMessage = previewTa ? String(previewTa.value || '') : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+    renderStatusInto(statusEl, 'success', 'Special Day Post', 'Saving...');
+    fetchJson('/api/admin/ads/special', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: text, preview_message: previewMessage }) })
+        .then(function(res) {
+            if (res.status !== 'success') {
+                renderStatusInto(statusEl, 'error', 'Special Day Post', res.message || 'Failed to save.');
+                return;
+            }
+            SPECIAL_PREVIEW_MESSAGE = typeof res.special_preview_message === 'string' ? res.special_preview_message : SPECIAL_PREVIEW_MESSAGE;
+            renderStatusInto(statusEl, 'success', 'Special Day Post', 'Saved.');
+            updatePreviewMessage();
+        })
+        .catch(function(err) {
+            renderStatusInto(statusEl, 'error', 'Special Day Post', err && err.message ? err.message : 'Failed to save.');
+        })
+        .finally(function() {
+            if (btn) { btn.disabled = false; btn.textContent = 'Save Special Day Post'; }
+        });
 }
 
 function applyTemplateToMessageIfAny() {
@@ -840,6 +1211,10 @@ function showMode(mode, session) {
     var aboutBox = document.getElementById('aboutBox');
     var brandHeader = document.getElementById('brandHeader');
 
+    try {
+        if (document.body) document.body.classList.remove('mode-brandnames');
+    } catch (e) {}
+
     if (loginBox) loginBox.style.display = 'none';
     if (signupPage) signupPage.style.display = 'none';
     if (otpPage) otpPage.style.display = 'none';
@@ -924,6 +1299,9 @@ function showMode(mode, session) {
             if (brandnamesBox) brandnamesBox.style.display = '';
             if (brandHeader) brandHeader.textContent = 'Brandnames';
             if (iphonePreview) iphonePreview.style.display = 'none';
+            try {
+                if (document.body) document.body.classList.add('mode-brandnames');
+            } catch (e) {}
             setBrandTab(getBrandTab());
             return;
         }
@@ -1171,22 +1549,26 @@ var BRAND_TAB_KEY = 'brand_tab';
 
 function getBrandTab() {
     var v = (sessionStorage.getItem(BRAND_TAB_KEY) || '').toLowerCase();
-    if (v === 'verified' || v === 'special' || v === 'pending' || v === 'free') return v;
+    if (v === 'verified' || v === 'dashboard' || v === 'trusted' || v === 'special' || v === 'pending' || v === 'free') return v;
     return 'pending';
 }
 
 function setBrandTab(tab) {
     var t = String(tab || '').toLowerCase();
-    if (t !== 'pending' && t !== 'verified' && t !== 'special' && t !== 'free') t = 'pending';
+    if (t !== 'pending' && t !== 'verified' && t !== 'dashboard' && t !== 'trusted' && t !== 'special' && t !== 'free') t = 'pending';
     sessionStorage.setItem(BRAND_TAB_KEY, t);
 
     var pendingPanel = document.getElementById('brandTabPending');
     var verifiedPanel = document.getElementById('brandTabVerified');
+    var dashboardPanel = document.getElementById('brandTabDashboard');
+    var trustedPanel = document.getElementById('brandTabTrusted');
     var specialPanel = document.getElementById('brandTabSpecial');
     var freePanel = document.getElementById('brandTabFree');
 
     if (pendingPanel) pendingPanel.style.display = (t === 'pending') ? '' : 'none';
     if (verifiedPanel) verifiedPanel.style.display = (t === 'verified') ? '' : 'none';
+    if (dashboardPanel) dashboardPanel.style.display = (t === 'dashboard') ? '' : 'none';
+    if (trustedPanel) trustedPanel.style.display = (t === 'trusted') ? '' : 'none';
     if (specialPanel) specialPanel.style.display = (t === 'special') ? '' : 'none';
     if (freePanel) freePanel.style.display = (t === 'free') ? '' : 'none';
 
@@ -1199,6 +1581,17 @@ function setBrandTab(tab) {
         else b.classList.remove('active');
     }
 
+    if (t === 'dashboard') {
+        refreshAdminDashboard(_adminStatsDays);
+        return;
+    }
+    if (t === 'trusted') {
+        loadTrustedBrands().then(function() {
+            var ta = document.getElementById('adminTrustedBrandsText');
+            if (ta) { ta.value = trustedBrandsToText(TRUSTED_BRANDS || []); autoGrowTextarea(ta); }
+        });
+        return;
+    }
     if (t === 'special') {
         refreshSpecialDayList();
     } else if (t === 'free') {
@@ -1482,12 +1875,18 @@ function refreshUsers() {
                 var planPart = u.is_free ? 'Free account • ' : '';
                 var line2 = namePart + planPart + 'Brandname: ' + (u.brandname || '') + (u.disabled ? ' • Disabled' : ' • Active');
                 var actions = '';
-                if (!u.is_admin) {
+                var passLabel = u.is_admin ? 'Change Password' : 'Reset Password';
+                if (u.is_admin) {
+                    actions =
+                        '<div class="user-actions">' +
+                            '<button class="mini-button js-reset-pass" data-username="' + escapeHtml(u.username || '') + '">' + passLabel + '</button>' +
+                        '</div>';
+                } else {
                     actions =
                         '<div class="user-actions">' +
                             '<button class="mini-button js-toggle-free" data-username="' + escapeHtml(u.username || '') + '" data-is_free="' + (u.is_free ? '0' : '1') + '">' + (u.is_free ? 'Remove Free' : 'Set Free') + '</button>' +
                             '<button class="mini-button js-toggle-user" data-username="' + escapeHtml(u.username || '') + '" data-disabled="' + (u.disabled ? '0' : '1') + '">' + (u.disabled ? 'Enable' : 'Disable') + '</button>' +
-                            '<button class="mini-button js-reset-pass" data-username="' + escapeHtml(u.username || '') + '">Reset Password</button>' +
+                            '<button class="mini-button js-reset-pass" data-username="' + escapeHtml(u.username || '') + '">' + passLabel + '</button>' +
                             '<button class="mini-button js-change-brand" data-username="' + escapeHtml(u.username || '') + '">Change Brand</button>' +
                         '</div>';
                 }
@@ -1770,11 +2169,151 @@ document.addEventListener('DOMContentLoaded', function() {
     dedupeElementsById('adminHomeAdsText');
     dedupeElementsById('saveHomeAdsBtn');
     dedupeElementsById('adminHomeAdsStatus');
+    dedupeElementsById('adminHomePreviewText');
+    dedupeElementsById('saveHomePreviewBtn');
+    dedupeElementsById('adminHomePreviewStatus');
     dedupeElementsById('adminSpecialAdsText');
     dedupeElementsById('saveSpecialAdsBtn');
     dedupeElementsById('adminSpecialAdsStatus');
+    dedupeElementsById('adminSpecialPreviewText');
+    dedupeElementsById('saveSpecialPreviewBtn');
+    dedupeElementsById('adminSpecialPreviewStatus');
+    dedupeElementsById('adminTrustedBrandsText');
+    dedupeElementsById('saveTrustedBrandsBtn');
+    dedupeElementsById('clearTrustedBrandsBtn');
+    dedupeElementsById('adminTrustedBrandsStatus');
+    dedupeElementsById('adminStats7Btn');
+    dedupeElementsById('adminStats30Btn');
+    dedupeElementsById('adminStatsAllBtn');
+    dedupeElementsById('adminStatsStatus');
+    dedupeElementsById('adminStatsChart');
+    dedupeElementsById('adminCurrentPassword');
+    dedupeElementsById('adminNewPassword');
+    dedupeElementsById('adminNewPassword2');
+    dedupeElementsById('adminChangePasswordBtn');
+    dedupeElementsById('adminChangePasswordStatus');
 
     var mode = currentMode();
+
+    var pwToggles = document.querySelectorAll('.pw-toggle');
+    if (pwToggles && pwToggles.forEach) {
+        pwToggles.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var targetId = btn.getAttribute('data-target') || '';
+                if (!targetId) return;
+                var input = document.getElementById(targetId);
+                if (!input) return;
+                var isHidden = String(input.getAttribute('type') || '').toLowerCase() === 'password';
+                input.setAttribute('type', isHidden ? 'text' : 'password');
+                btn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+                var icon = btn.querySelector('i');
+                if (icon) {
+                    icon.className = isHidden ? 'fa fa-eye-slash' : 'fa fa-eye';
+                    icon.setAttribute('aria-hidden', 'true');
+                }
+            });
+        });
+    }
+
+    function bindDigitsOnly(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('input', function() {
+            var v = String(el.value || '');
+            var nv = v.replace(/\D+/g, '');
+            if (v !== nv) el.value = nv;
+        });
+    }
+
+    function normalizePhoneNumberClient(raw) {
+        var s = String(raw || '').trim();
+        if (!s) return '';
+        s = s.replace(/[\u200B-\u200F\u202A-\u202E]/g, '');
+        s = s.replace(/[ \t\r\n\-\(\)]/g, '');
+        if (s.charAt(0) === '+') s = s.slice(1);
+        s = s.replace(/\D+/g, '');
+        if (s.charAt(0) === '0' && s.length === 10 && /^\d+$/.test(s)) {
+            s = '233' + s.slice(1);
+        }
+        return s;
+    }
+
+    function cleanRecipientsText(raw) {
+        var src = String(raw || '');
+        var candidates = [];
+        var re = /(\+?\d[\d\s\-\(\)]{6,}\d)/g;
+        var m = null;
+        while ((m = re.exec(src)) !== null) {
+            candidates.push(String(m[1] || ''));
+        }
+        if (!candidates.length) {
+            var parts = src.replace(/[,;\n\r]+/g, ' ').split(/\s+/).filter(Boolean);
+            for (var i = 0; i < parts.length; i++) {
+                if (/\d/.test(parts[i])) candidates.push(parts[i]);
+            }
+        }
+
+        var seen = {};
+        var valid = [];
+        var invalid = [];
+        var duplicatesRemoved = 0;
+
+        for (var j = 0; j < candidates.length; j++) {
+            var n = normalizePhoneNumberClient(candidates[j]);
+            if (!n) continue;
+            if (!/^\d+$/.test(n) || n.length < 8 || n.length > 15) {
+                invalid.push(n);
+                continue;
+            }
+            if (seen[n]) {
+                duplicatesRemoved += 1;
+                continue;
+            }
+            seen[n] = true;
+            valid.push(n);
+        }
+
+        return { valid: valid, invalid: invalid, duplicatesRemoved: duplicatesRemoved };
+    }
+
+    function bindRecipientsCleaner(textareaId, statusId) {
+        var el = document.getElementById(textareaId);
+        if (!el) return;
+        var statusEl = document.getElementById(statusId);
+        var applying = false;
+
+        function applyClean() {
+            if (applying) return;
+            applying = true;
+            var raw = String(el.value || '');
+            var res = cleanRecipientsText(raw);
+            var cleaned = res.valid.join(', ');
+            if (raw !== cleaned) el.value = cleaned;
+            if (statusEl) {
+                var msg = 'Recipients: ' + res.valid.length;
+                if (res.duplicatesRemoved) msg += ' | Duplicates removed: ' + res.duplicatesRemoved;
+                if (res.invalid.length) {
+                    msg += ' | Invalid: ' + res.invalid.length;
+                    var preview = res.invalid.slice(0, 10).join(', ');
+                    if (preview) msg += ' — ' + preview + (res.invalid.length > 10 ? ' ...' : '');
+                }
+                statusEl.textContent = msg;
+            }
+            applying = false;
+        }
+
+        el.addEventListener('input', applyClean);
+        el.addEventListener('paste', function() { setTimeout(applyClean, 0); });
+        applyClean();
+    }
+
+    bindDigitsOnly('loginUsername');
+    bindDigitsOnly('signupPhone');
+    bindDigitsOnly('resetPhone');
+    bindDigitsOnly('newUsername');
+    bindDigitsOnly('freeUserPhone');
+    bindRecipientsCleaner('recipientPhone', 'recipientPhoneStatus');
+    bindRecipientsCleaner('specialRecipientPhone', 'specialRecipientPhoneStatus');
 
     var messageInput = document.getElementById('Message1');
     if (messageInput) {
@@ -1789,6 +2328,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var specialMessage = document.getElementById('specialMessage');
     if (specialMessage) {
+        specialMessage.addEventListener('input', updatePreviewMessage);
         specialMessage.addEventListener('input', function() { autoGrowTextarea(specialMessage); });
         autoGrowTextarea(specialMessage);
     }
@@ -1814,11 +2354,42 @@ document.addEventListener('DOMContentLoaded', function() {
         adminSpecialAdsText.addEventListener('input', function() { autoGrowTextarea(adminSpecialAdsText); });
         autoGrowTextarea(adminSpecialAdsText);
     }
+    var adminHomePreviewText = document.getElementById('adminHomePreviewText');
+    if (adminHomePreviewText) {
+        adminHomePreviewText.addEventListener('input', function() { autoGrowTextarea(adminHomePreviewText); });
+        autoGrowTextarea(adminHomePreviewText);
+    }
+    var adminSpecialPreviewText = document.getElementById('adminSpecialPreviewText');
+    if (adminSpecialPreviewText) {
+        adminSpecialPreviewText.addEventListener('input', function() { autoGrowTextarea(adminSpecialPreviewText); });
+        autoGrowTextarea(adminSpecialPreviewText);
+    }
+    var adminTrustedBrandsText = document.getElementById('adminTrustedBrandsText');
+    if (adminTrustedBrandsText) {
+        adminTrustedBrandsText.addEventListener('input', function() { autoGrowTextarea(adminTrustedBrandsText); });
+        autoGrowTextarea(adminTrustedBrandsText);
+    }
 
     var saveHomeAdsBtn = document.getElementById('saveHomeAdsBtn');
     if (saveHomeAdsBtn) saveHomeAdsBtn.addEventListener('click', saveHomeAds);
     var saveSpecialAdsBtn = document.getElementById('saveSpecialAdsBtn');
     if (saveSpecialAdsBtn) saveSpecialAdsBtn.addEventListener('click', saveSpecialAds);
+    var saveHomePreviewBtn = document.getElementById('saveHomePreviewBtn');
+    if (saveHomePreviewBtn) saveHomePreviewBtn.addEventListener('click', saveHomePreview);
+    var saveSpecialPreviewBtn = document.getElementById('saveSpecialPreviewBtn');
+    if (saveSpecialPreviewBtn) saveSpecialPreviewBtn.addEventListener('click', saveSpecialPreview);
+    var saveTrustedBrandsBtn = document.getElementById('saveTrustedBrandsBtn');
+    if (saveTrustedBrandsBtn) saveTrustedBrandsBtn.addEventListener('click', saveTrustedBrands);
+    var clearTrustedBrandsBtn = document.getElementById('clearTrustedBrandsBtn');
+    if (clearTrustedBrandsBtn) clearTrustedBrandsBtn.addEventListener('click', clearTrustedBrands);
+    var adminStats7Btn = document.getElementById('adminStats7Btn');
+    if (adminStats7Btn) adminStats7Btn.addEventListener('click', function() { refreshAdminDashboard(7); });
+    var adminStats30Btn = document.getElementById('adminStats30Btn');
+    if (adminStats30Btn) adminStats30Btn.addEventListener('click', function() { refreshAdminDashboard(30); });
+    var adminStatsAllBtn = document.getElementById('adminStatsAllBtn');
+    if (adminStatsAllBtn) adminStatsAllBtn.addEventListener('click', function() { refreshAdminDashboard(0); });
+    var adminChangePasswordBtn = document.getElementById('adminChangePasswordBtn');
+    if (adminChangePasswordBtn) adminChangePasswordBtn.addEventListener('click', adminChangePassword);
 
     var usersList = document.getElementById('usersList');
     if (usersList) {
@@ -1909,7 +2480,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     fetchSession().then(function(session) {
         showMode(mode, session);
-        loadAds().then(function() {
+        Promise.all([loadAds(), loadTrustedBrands()]).then(function() {
             if (session && session.logged_in) {
                 applyAdsForMode(mode);
             }
@@ -1918,7 +2489,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (t1) { t1.value = (HOME_ADS || []).join('\n'); autoGrowTextarea(t1); }
                 var t2 = document.getElementById('adminSpecialAdsText');
                 if (t2) { t2.value = (SPECIAL_ADS || []).join('\n'); autoGrowTextarea(t2); }
+                var t3 = document.getElementById('adminHomePreviewText');
+                if (t3) { t3.value = String(HOME_PREVIEW_MESSAGE || ''); autoGrowTextarea(t3); }
+                var t4 = document.getElementById('adminSpecialPreviewText');
+                if (t4) { t4.value = String(SPECIAL_PREVIEW_MESSAGE || ''); autoGrowTextarea(t4); }
+                var t5 = document.getElementById('adminTrustedBrandsText');
+                if (t5) { t5.value = trustedBrandsToText(TRUSTED_BRANDS || []); autoGrowTextarea(t5); }
             }
+            updatePreviewMessage();
         });
         if (mode === 'subscription') {
             var params = new URLSearchParams(window.location.search || '');

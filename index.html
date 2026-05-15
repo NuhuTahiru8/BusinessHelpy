@@ -4,12 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Business SMS</title>
+    <meta name="description" content="Business SMS platform: create a Sender ID, manage templates, send bulk SMS, and top up your SMS bundle.">
+    <link rel="icon" href="/favicon.avif" type="image/avif">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="topnav" id="myTopnav">
-        <a href="index.html" class="active">Home</a>
+        <a href="index.html" class="active">Personal Brand</a>
         <a href="template.html">Templates</a>
         <a href="index.html?mode=subscription" id="subscriptionLink">Top up</a>
         <a href="index.html?mode=special" id="specialDayLink">Special Day</a>
@@ -41,14 +43,16 @@
                         </div>
                     </div>
                 </div>
-                <!-- Add more messages as needed -->
             </div>
         </div>
 
         <div class="inputs">
             <div id="loginBox">
-                <input type="text" id="loginUsername" placeholder="Phone number (e.g. 233XXXXXXXXX)" autocomplete="tel" />
-                <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" />
+                <input type="tel" id="loginUsername" placeholder="Phone number (e.g. 233XXXXXXXXX)" autocomplete="tel" inputmode="numeric" pattern="[0-9]*" />
+                <div class="pw-field">
+                    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" />
+                    <button class="pw-toggle" type="button" aria-label="Show password" data-target="loginPassword"><i class="fa fa-eye" aria-hidden="true"></i></button>
+                </div>
                 <button class="button" onclick="login()">Login</button>
                 <div class="auth-actions">
                     <button class="mini-button" type="button" onclick="window.location.href='index.html?mode=signup'">Create Account</button>
@@ -61,8 +65,11 @@
                 <div class="admin-title">Create Account</div>
                 <div class="admin-card">
                     <input type="text" id="signupName" placeholder="Full name" autocomplete="name" />
-                    <input type="text" id="signupPhone" placeholder="Phone number (e.g. 233XXXXXXXXX)" autocomplete="tel" />
-                    <input type="password" id="signupPassword" placeholder="Create password" autocomplete="new-password" />
+                    <input type="tel" id="signupPhone" placeholder="Phone number (e.g. 233XXXXXXXXX)" autocomplete="tel" inputmode="numeric" pattern="[0-9]*" />
+                    <div class="pw-field">
+                        <input type="password" id="signupPassword" placeholder="Create password" autocomplete="new-password" />
+                        <button class="pw-toggle" type="button" aria-label="Show password" data-target="signupPassword"><i class="fa fa-eye" aria-hidden="true"></i></button>
+                    </div>
                     <button class="button" type="button" id="signupContinueBtn" onclick="signupContinue()">Continue</button>
                     <div class="auth-actions">
                         <button class="mini-button" type="button" onclick="window.location.href='index.html'">Back to Login</button>
@@ -95,7 +102,7 @@
             <div id="resetPage" style="display:none;">
                 <div class="admin-title">Reset Password</div>
                 <div class="admin-card">
-                    <input type="text" id="resetPhone" placeholder="Phone number (e.g. 233XXXXXXXXX)" autocomplete="tel" />
+                    <input type="tel" id="resetPhone" placeholder="Phone number (e.g. 233XXXXXXXXX)" autocomplete="tel" inputmode="numeric" pattern="[0-9]*" />
                     <button class="mini-button" type="button" id="resetStartBtn" onclick="resetStart()">Send OTP</button>
                     <div class="otp-row" id="resetOtpInputs">
                         <input class="otp-box" inputmode="numeric" maxlength="1" />
@@ -105,7 +112,10 @@
                         <input class="otp-box" inputmode="numeric" maxlength="1" />
                         <input class="otp-box" inputmode="numeric" maxlength="1" />
                     </div>
-                    <input type="password" id="resetNewPassword" placeholder="New password" autocomplete="new-password" />
+                    <div class="pw-field">
+                        <input type="password" id="resetNewPassword" placeholder="New password" autocomplete="new-password" />
+                        <button class="pw-toggle" type="button" aria-label="Show password" data-target="resetNewPassword"><i class="fa fa-eye" aria-hidden="true"></i></button>
+                    </div>
                     <button class="button" type="button" id="resetVerifyBtn" onclick="resetVerify()">Verify & Reset</button>
                     <div class="auth-actions">
                         <button class="mini-button" type="button" onclick="window.location.href='index.html'">Back to Login</button>
@@ -137,7 +147,8 @@
             <div id="smsBox" style="display:none;">
                 <select id="senderIdSelect"></select>
                 <textarea id="Message1" data-max-height="180" placeholder="Write your SMS"></textarea>
-                <textarea id="recipientPhone" data-max-height="120" placeholder="Customer Phone Number(s) (e.g. 233XXXXXXXXX, 233XXXXXXXXX)"></textarea>
+                <textarea id="recipientPhone" data-max-height="120" placeholder="Customer Phone Number(s) (e.g. 233XXXXXXXXX, 233XXXXXXXXX)" inputmode="numeric"></textarea>
+                <div class="phone-cleaner-status" id="recipientPhoneStatus" aria-live="polite"></div>
                 <button class="button" id="sendBtn" onclick="sendSMS()">Send</button>
                 <div id="statusBox" aria-live="polite"></div>
 
@@ -155,13 +166,19 @@
                         <button class="mini-button" id="saveHomeAdsBtn" type="button">Save Business Ideas</button>
                         <div id="adminHomeAdsStatus" aria-live="polite"></div>
                     </div>
+                    <div class="admin-card">
+                        <div class="admin-subtitle">Personal Brand Post</div>
+                        <textarea id="adminHomePreviewText" data-max-height="140" placeholder="This message shows as the example SMS when the input is empty"></textarea>
+                        <button class="mini-button" id="saveHomePreviewBtn" type="button">Save Personal Brand Post</button>
+                        <div id="adminHomePreviewStatus" aria-live="polite"></div>
+                    </div>
                 </div>
 
                 <div id="adminBox" style="display:none;">
                     <div class="admin-title">Admin Dashboard</div>
                     <div class="admin-card">
                         <div class="admin-subtitle">Create Account</div>
-                        <input type="text" id="newUsername" placeholder="Username (e.g. company1)" autocomplete="off" />
+                        <input type="tel" id="newUsername" placeholder="Phone number (e.g. 233XXXXXXXXX)" autocomplete="tel" inputmode="numeric" pattern="[0-9]*" />
                         <input type="text" id="newBrandname" placeholder="Brandname (Sender ID)" autocomplete="off" />
                         <input type="password" id="newPassword" placeholder="Password" autocomplete="new-password" />
                         <button class="button" id="createUserBtn" onclick="createUser()">Create Account</button>
@@ -176,7 +193,8 @@
             <div id="specialDayBox" style="display:none;">
                 <select id="specialSender"></select>
                 <textarea id="specialMessage" data-max-height="180" placeholder="Write your Special Day SMS"></textarea>
-                <textarea id="specialRecipientPhone" data-max-height="120" placeholder="Customer Phone Number(s) (e.g. 233XXXXXXXXX, 233XXXXXXXXX)"></textarea>
+                <textarea id="specialRecipientPhone" data-max-height="120" placeholder="Customer Phone Number(s) (e.g. 233XXXXXXXXX, 233XXXXXXXXX)" inputmode="numeric"></textarea>
+                <div class="phone-cleaner-status" id="specialRecipientPhoneStatus" aria-live="polite"></div>
                 <button class="button" id="specialSendBtn" onclick="sendSpecialSMS()">Send</button>
                 <div id="specialStatusBox" aria-live="polite"></div>
                 <div id="adminSpecialAdsBox" style="display:none;">
@@ -185,6 +203,12 @@
                         <textarea id="adminSpecialAdsText" data-max-height="160" placeholder="One post per line"></textarea>
                         <button class="mini-button" id="saveSpecialAdsBtn" type="button">Save Special Day Posts</button>
                         <div id="adminSpecialAdsStatus" aria-live="polite"></div>
+                    </div>
+                    <div class="admin-card">
+                        <div class="admin-subtitle">Special Day Post</div>
+                        <textarea id="adminSpecialPreviewText" data-max-height="140" placeholder="This message shows as the example SMS when the input is empty"></textarea>
+                        <button class="mini-button" id="saveSpecialPreviewBtn" type="button">Save Special Day Post</button>
+                        <div id="adminSpecialPreviewStatus" aria-live="polite"></div>
                     </div>
                 </div>
             </div>
@@ -196,6 +220,8 @@
                     <div class="brand-tabs" role="tablist" aria-label="Brandname tabs">
                         <button class="brand-tab-btn js-brand-tab" type="button" data-tab="pending">Pending</button>
                         <button class="brand-tab-btn js-brand-tab" type="button" data-tab="verified">Verified</button>
+                        <button class="brand-tab-btn js-brand-tab" type="button" data-tab="dashboard">Dashboard</button>
+                        <button class="brand-tab-btn js-brand-tab" type="button" data-tab="trusted">Trusted Brands</button>
                         <button class="brand-tab-btn js-brand-tab" type="button" data-tab="special">Special Day</button>
                         <button class="brand-tab-btn js-brand-tab" type="button" data-tab="free">Free Users</button>
                     </div>
@@ -211,6 +237,43 @@
                             <div id="approvedSenderIds"></div>
                         </div>
 
+                        <div class="brand-tab-panel" id="brandTabDashboard" style="display:none;">
+                            <div class="admin-subtitle">Usage Dashboard</div>
+                            <div class="auth-actions" style="margin-top:0;">
+                                <button class="mini-button" id="adminStats7Btn" type="button">Last 7 days</button>
+                                <button class="mini-button" id="adminStats30Btn" type="button">Last 30 days</button>
+                                <button class="mini-button" id="adminStatsAllBtn" type="button">All time</button>
+                            </div>
+                            <div id="adminStatsStatus" aria-live="polite"></div>
+                            <div id="adminStatsChart"></div>
+
+                            <div class="admin-subtitle" style="margin-top:14px;">Change Admin Password</div>
+                            <div class="pw-field">
+                                <input type="password" id="adminCurrentPassword" placeholder="Current password" autocomplete="current-password" />
+                                <button class="pw-toggle" type="button" aria-label="Show password" data-target="adminCurrentPassword"><i class="fa fa-eye" aria-hidden="true"></i></button>
+                            </div>
+                            <div class="pw-field">
+                                <input type="password" id="adminNewPassword" placeholder="New password" autocomplete="new-password" />
+                                <button class="pw-toggle" type="button" aria-label="Show password" data-target="adminNewPassword"><i class="fa fa-eye" aria-hidden="true"></i></button>
+                            </div>
+                            <div class="pw-field">
+                                <input type="password" id="adminNewPassword2" placeholder="Confirm new password" autocomplete="new-password" />
+                                <button class="pw-toggle" type="button" aria-label="Show password" data-target="adminNewPassword2"><i class="fa fa-eye" aria-hidden="true"></i></button>
+                            </div>
+                            <button class="mini-button" id="adminChangePasswordBtn" type="button">Update Password</button>
+                            <div id="adminChangePasswordStatus" aria-live="polite"></div>
+                        </div>
+
+                        <div class="brand-tab-panel" id="brandTabTrusted" style="display:none;">
+                            <div class="admin-subtitle">Landing: Trusted Brands</div>
+                            <textarea id="adminTrustedBrandsText" data-max-height="180" placeholder="One brand per line.\nFormat: Brand Name || Logo URL\nIf your keyboard can't type |, use: Brand Name ~ Logo URL\nExample:\nBirthday ~ https://example.com/logo.png"></textarea>
+                            <div class="auth-actions">
+                                <button class="mini-button" id="saveTrustedBrandsBtn" type="button">Save Trusted Brands</button>
+                                <button class="mini-button danger" id="clearTrustedBrandsBtn" type="button">Clear</button>
+                            </div>
+                            <div id="adminTrustedBrandsStatus" aria-live="polite"></div>
+                        </div>
+
                         <div class="brand-tab-panel" id="brandTabSpecial" style="display:none;">
                             <div style="margin-bottom:12px;">
                                 <input type="text" id="newSpecialDayId" placeholder="Add Special Day ID (max 11)" maxlength="11" autocomplete="off" />
@@ -222,7 +285,7 @@
                         <div class="brand-tab-panel" id="brandTabFree" style="display:none;">
                             <div class="admin-subtitle">Add Free User</div>
                             <div style="margin-bottom:12px;">
-                                <input type="text" id="freeUserPhone" placeholder="User phone/username (e.g. 233XXXXXXXXX)" autocomplete="off" />
+                                <input type="tel" id="freeUserPhone" placeholder="User phone number (e.g. 233XXXXXXXXX)" autocomplete="tel" inputmode="numeric" pattern="[0-9]*" />
                                 <button class="mini-button" id="addFreeUserBtn" type="button">Add</button>
                             </div>
                             <div id="freeUsersStatus" aria-live="polite"></div>
