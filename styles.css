@@ -635,6 +635,8 @@ textarea {
     border-radius: 12px;
     border: 1px solid #ddd;
     background: #ffffff;
+    color: #111111;
+    caret-color: #111111;
     text-align: center;
     font-size: 18px;
     font-weight: 900;

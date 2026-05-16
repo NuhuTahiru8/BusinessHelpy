@@ -63,7 +63,8 @@
         .lp-sub { margin: 14px 0 0; max-width: 780px; color: rgba(245, 248, 255, 0.70); font-size: 16px; line-height: 1.65; }
         .lp-cta { margin-top: 18px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
         .lp-availability { margin-top: 12px; display: inline-flex; align-items: center; gap: 10px; color: rgba(245, 248, 255, 0.65); font-weight: 900; font-size: 13px; }
-        .lp-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--lp-accent); box-shadow: 0 0 0 4px rgba(185, 246, 10, 0.12); }
+        .lp-dot { width: 8px; height: 8px; border-radius: 999px; background: var(--lp-accent); box-shadow: 0 0 0 0 rgba(185, 246, 10, 0.28); animation: lpOnlinePulse 1.35s ease-out infinite; }
+        @keyframes lpOnlinePulse { 0% { box-shadow: 0 0 0 0 rgba(185, 246, 10, 0.28); } 70% { box-shadow: 0 0 0 10px rgba(185, 246, 10, 0); } 100% { box-shadow: 0 0 0 0 rgba(185, 246, 10, 0); } }
 
         .lp-trust { margin-top: 34px; width: 100%; }
         .lp-trust-title { color: rgba(245, 248, 255, 0.72); font-weight: 900; font-size: 13px; letter-spacing: 0.02em; }
@@ -183,7 +184,7 @@
                 <a class="lp-btn primary" href="index.html?mode=signup">Create Account</a>
                 <a class="lp-btn" href="#pricing">View Pricing</a>
             </div>
-            <div class="lp-availability"><span class="lp-dot" aria-hidden="true"></span><span>2 Spots Available</span></div>
+            <div class="lp-availability"><span class="lp-dot" aria-hidden="true"></span><span>On-line</span></div>
             <div class="lp-trust" aria-label="Trusted brands">
                 <div class="lp-trust-title">Trusted by brands using AyiSun SMS to reach customers</div>
                 <div class="lp-brands" id="lpBrandsRow">

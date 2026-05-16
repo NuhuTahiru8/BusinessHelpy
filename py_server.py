@@ -1639,6 +1639,37 @@ class Handler(BaseHTTPRequestHandler):
 
             return self.send_json(200, {"status": "success", "message": "OTP sent"})
 
+        if path == "/api/password-reset/check":
+            body = self.read_json()
+            if body is None:
+                return self.send_json(400, {"status": "error", "message": "Invalid JSON"})
+            phone = normalize_phone_number(str(body.get("phone") or ""))
+            otp = str(body.get("otp") or "").strip()
+            if not phone or not (phone.isdigit() and 8 <= len(phone) <= 15):
+                return self.send_json(400, {"status": "error", "message": "Invalid phone number"})
+            if not _is_valid_otp(otp):
+                return self.send_json(400, {"status": "error", "message": "Invalid OTP"})
+
+            key = _otp_key(phone, "reset")
+            rec = OTP_STORE.get(key)
+            if not isinstance(rec, dict):
+                return self.send_json(400, {"status": "error", "message": "OTP expired. Request a new code."})
+            if int(rec.get("expires_at") or 0) <= utc_now_ts():
+                OTP_STORE.pop(key, None)
+                return self.send_json(400, {"status": "error", "message": "OTP expired. Request a new code."})
+            rec["attempts"] = int(rec.get("attempts") or 0) + 1
+            if rec["attempts"] > OTP_MAX_ATTEMPTS:
+                OTP_STORE.pop(key, None)
+                return self.send_json(400, {"status": "error", "message": "Too many attempts. Request a new code."})
+            if not hmac.compare_digest(str(rec.get("otp_hash") or ""), _otp_hash(otp)):
+                OTP_STORE[key] = rec
+                return self.send_json(400, {"status": "error", "message": "Wrong OTP"})
+
+            rec["verified"] = True
+            rec["verified_at"] = utc_now_ts()
+            OTP_STORE[key] = rec
+            return self.send_json(200, {"status": "success", "message": "OTP verified"})
+
         if path == "/api/password-reset/verify":
             body = self.read_json()
             if body is None:

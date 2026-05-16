@@ -102,21 +102,33 @@
             <div id="resetPage" style="display:none;">
                 <div class="admin-title">Reset Password</div>
                 <div class="admin-card">
-                    <input type="tel" id="resetPhone" placeholder="Phone number (e.g. 233XXXXXXXXX)" autocomplete="tel" inputmode="numeric" pattern="[0-9]*" />
-                    <button class="mini-button" type="button" id="resetStartBtn" onclick="resetStart()">Send OTP</button>
-                    <div class="otp-row" id="resetOtpInputs">
-                        <input class="otp-box" inputmode="numeric" maxlength="1" />
-                        <input class="otp-box" inputmode="numeric" maxlength="1" />
-                        <input class="otp-box" inputmode="numeric" maxlength="1" />
-                        <input class="otp-box" inputmode="numeric" maxlength="1" />
-                        <input class="otp-box" inputmode="numeric" maxlength="1" />
-                        <input class="otp-box" inputmode="numeric" maxlength="1" />
+                    <div id="resetStepPhone">
+                        <input type="tel" id="resetPhone" placeholder="Phone number (e.g. 233XXXXXXXXX)" autocomplete="tel" inputmode="numeric" pattern="[0-9]*" />
+                        <button class="mini-button" type="button" id="resetStartBtn" onclick="resetStart()">Send OTP</button>
                     </div>
-                    <div class="pw-field">
-                        <input type="password" id="resetNewPassword" placeholder="New password" autocomplete="new-password" />
-                        <button class="pw-toggle" type="button" aria-label="Show password" data-target="resetNewPassword"><i class="fa fa-eye" aria-hidden="true"></i></button>
+
+                    <div id="resetStepOtp" style="display:none;">
+                        <div class="admin-subtitle" id="resetOtpSubtitle">Enter the 6-digit code</div>
+                        <div class="otp-row" id="resetOtpInputs">
+                            <input class="otp-box" inputmode="numeric" maxlength="1" />
+                            <input class="otp-box" inputmode="numeric" maxlength="1" />
+                            <input class="otp-box" inputmode="numeric" maxlength="1" />
+                            <input class="otp-box" inputmode="numeric" maxlength="1" />
+                            <input class="otp-box" inputmode="numeric" maxlength="1" />
+                            <input class="otp-box" inputmode="numeric" maxlength="1" />
+                        </div>
+                        <button class="button" type="button" id="resetOtpVerifyBtn" onclick="resetOtpVerify()">Verify OTP</button>
+                        <button class="mini-button" type="button" id="resetResendBtn" onclick="resetStart()">Resend OTP</button>
                     </div>
-                    <button class="button" type="button" id="resetVerifyBtn" onclick="resetVerify()">Verify & Reset</button>
+
+                    <div id="resetStepPassword" style="display:none;">
+                        <div class="pw-field">
+                            <input type="password" id="resetNewPassword" placeholder="New password" autocomplete="new-password" />
+                            <button class="pw-toggle" type="button" aria-label="Show password" data-target="resetNewPassword"><i class="fa fa-eye" aria-hidden="true"></i></button>
+                        </div>
+                        <button class="button" type="button" id="resetVerifyBtn" onclick="resetVerify()">Reset Password</button>
+                    </div>
+
                     <div class="auth-actions">
                         <button class="mini-button" type="button" onclick="window.location.href='index.html'">Back to Login</button>
                     </div>

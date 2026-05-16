@@ -1004,9 +1004,59 @@ function otpResend() {
         });
 }
 
+function resetSetStep(step) {
+    var s = String(step || '').toLowerCase();
+    var phoneStep = document.getElementById('resetStepPhone');
+    var otpStep = document.getElementById('resetStepOtp');
+    var passwordStep = document.getElementById('resetStepPassword');
+    if (phoneStep) phoneStep.style.display = (s === 'phone') ? '' : 'none';
+    if (otpStep) otpStep.style.display = (s === 'otp') ? '' : 'none';
+    if (passwordStep) passwordStep.style.display = (s === 'password') ? '' : 'none';
+
+    try {
+        if (s === 'otp') {
+            var first = document.querySelector('#resetOtpInputs input');
+            if (first) first.focus();
+        } else if (s === 'password') {
+            var np = document.getElementById('resetNewPassword');
+            if (np) np.focus();
+        } else {
+            var ph = document.getElementById('resetPhone');
+            if (ph) ph.focus();
+        }
+    } catch (e) {}
+}
+
+function resetClearOtpBoxes() {
+    var root = document.getElementById('resetOtpInputs');
+    if (!root) return;
+    var inputs = root.querySelectorAll('input');
+    for (var i = 0; i < inputs.length; i++) {
+        inputs[i].value = '';
+    }
+}
+
+function resetInitUi() {
+    var phone = (sessionStorage.getItem('reset_phone') || ((document.getElementById('resetPhone') || {}).value || '')).trim();
+    var verified = (sessionStorage.getItem('reset_otp_verified') || '') === '1';
+    var step = 'phone';
+    if (phone) step = verified ? 'password' : 'otp';
+    resetSetStep(step);
+
+    var sub = document.getElementById('resetOtpSubtitle');
+    if (sub) sub.textContent = phone ? ('Enter the 6-digit code sent to ' + phone) : 'Enter the 6-digit code';
+
+    if (phone) {
+        startOtpCooldownTimer('reset', phone, 'resetStartBtn');
+        startOtpCooldownTimer('reset', phone, 'resetResendBtn');
+    }
+}
+
 function resetStart() {
     var phone = ((document.getElementById('resetPhone') || {}).value || '').trim();
+    if (!phone) phone = (sessionStorage.getItem('reset_phone') || '').trim();
     var btn = document.getElementById('resetStartBtn');
+    var btn2 = document.getElementById('resetResendBtn');
     var statusEl = document.getElementById('resetStatus');
     if (!phone) {
         renderStatusInto(statusEl, 'error', 'Reset Password', 'Enter your phone number.');
@@ -1018,7 +1068,10 @@ function resetStart() {
         return;
     }
     sessionStorage.setItem('reset_phone', phone);
+    sessionStorage.removeItem('reset_otp_verified');
+    sessionStorage.setItem('reset_step', 'otp');
     if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
+    if (btn2) { btn2.disabled = true; btn2.textContent = 'Sending...'; }
     renderStatusInto(statusEl, 'success', 'Sending OTP...', 'Please wait.');
     fetchJson('/api/password-reset/start', {
         method: 'POST',
@@ -1027,17 +1080,64 @@ function resetStart() {
     })
         .then(function(res) {
             if (btn) { btn.disabled = false; btn.textContent = 'Send OTP'; }
+            if (btn2) { btn2.disabled = false; btn2.textContent = 'Resend OTP'; }
             if (res.status === 'success') {
                 setOtpCooldown('reset', phone, OTP_RESEND_COOLDOWN_SECONDS);
                 startOtpCooldownTimer('reset', phone, 'resetStartBtn');
-                renderStatusInto(statusEl, 'success', 'OTP sent', 'Enter the 6-digit code and new password.');
+                startOtpCooldownTimer('reset', phone, 'resetResendBtn');
+                resetClearOtpBoxes();
+                var pw = document.getElementById('resetNewPassword');
+                if (pw) pw.value = '';
+                var sub = document.getElementById('resetOtpSubtitle');
+                if (sub) sub.textContent = 'Enter the 6-digit code sent to ' + phone;
+                resetSetStep('otp');
+                renderStatusInto(statusEl, 'success', 'OTP sent', 'Enter the 6-digit code.');
                 return;
             }
             renderStatusInto(statusEl, 'error', 'OTP failed', res.message || 'Failed to send OTP.');
         })
         .catch(function(err) {
             if (btn) { btn.disabled = false; btn.textContent = 'Send OTP'; }
+            if (btn2) { btn2.disabled = false; btn2.textContent = 'Resend OTP'; }
             renderStatusInto(statusEl, 'error', 'OTP failed', normalizeOtpUiErrorMessage(err && err.message ? err.message : ''));
+        });
+}
+
+function resetOtpVerify() {
+    var phone = (sessionStorage.getItem('reset_phone') || ((document.getElementById('resetPhone') || {}).value || '')).trim();
+    var otp = otpBoxesValue('resetOtpInputs');
+    var btn = document.getElementById('resetOtpVerifyBtn');
+    var statusEl = document.getElementById('resetStatus');
+    if (!phone) {
+        renderStatusInto(statusEl, 'error', 'Verify OTP', 'Enter your phone number and request an OTP.');
+        resetSetStep('phone');
+        return;
+    }
+    if (!otp || otp.length !== 6) {
+        renderStatusInto(statusEl, 'error', 'Verify OTP', 'Enter the 6-digit code.');
+        return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = 'Verifying...'; }
+    renderStatusInto(statusEl, 'success', 'Verifying...', 'Please wait.');
+    fetchJson('/api/password-reset/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phone, otp: otp })
+    })
+        .then(function(res) {
+            if (btn) { btn.disabled = false; btn.textContent = 'Verify OTP'; }
+            if (res.status === 'success') {
+                sessionStorage.setItem('reset_otp_verified', '1');
+                sessionStorage.setItem('reset_step', 'password');
+                resetSetStep('password');
+                renderStatusInto(statusEl, 'success', 'OTP verified', 'Enter your new password.');
+                return;
+            }
+            renderStatusInto(statusEl, 'error', 'Verify failed', res.message || 'Failed to verify OTP.');
+        })
+        .catch(function(err) {
+            if (btn) { btn.disabled = false; btn.textContent = 'Verify OTP'; }
+            renderStatusInto(statusEl, 'error', 'Verify failed', normalizeOtpUiErrorMessage(err && err.message ? err.message : ''));
         });
 }
 
@@ -1047,6 +1147,11 @@ function resetVerify() {
     var newPassword = ((document.getElementById('resetNewPassword') || {}).value || '');
     var btn = document.getElementById('resetVerifyBtn');
     var statusEl = document.getElementById('resetStatus');
+    if ((sessionStorage.getItem('reset_otp_verified') || '') !== '1') {
+        renderStatusInto(statusEl, 'error', 'Reset Password', 'Verify the OTP first.');
+        resetSetStep('otp');
+        return;
+    }
     if (!phone || !otp || otp.length !== 6 || !newPassword) {
         renderStatusInto(statusEl, 'error', 'Reset Password', 'Enter phone, OTP, and new password.');
         return;
@@ -1059,17 +1164,19 @@ function resetVerify() {
         body: JSON.stringify({ phone: phone, otp: otp, newPassword: newPassword })
     })
         .then(function(res) {
-            if (btn) { btn.disabled = false; btn.textContent = 'Verify & Reset'; }
+            if (btn) { btn.disabled = false; btn.textContent = 'Reset Password'; }
             if (res.status === 'success' && res.logged_in) {
                 setLoggedInUI(res);
                 sessionStorage.removeItem('reset_phone');
+                sessionStorage.removeItem('reset_step');
+                sessionStorage.removeItem('reset_otp_verified');
                 window.location.href = 'index.html';
                 return;
             }
             renderStatusInto(statusEl, 'error', 'Reset failed', res.message || 'Failed to reset password.');
         })
         .catch(function(err) {
-            if (btn) { btn.disabled = false; btn.textContent = 'Verify & Reset'; }
+            if (btn) { btn.disabled = false; btn.textContent = 'Reset Password'; }
             renderStatusInto(statusEl, 'error', 'Reset failed', err && err.message ? err.message : 'Failed to reset password.');
         });
 }
@@ -1257,8 +1364,7 @@ function showMode(mode, session) {
     if (mode === 'reset') {
         if (resetPage) resetPage.style.display = '';
         initOtpBoxes('resetOtpInputs');
-        var rp = (sessionStorage.getItem('reset_phone') || ((document.getElementById('resetPhone') || {}).value || '')).trim();
-        if (rp) startOtpCooldownTimer('reset', rp, 'resetStartBtn');
+        resetInitUi();
         if (brandHeader) brandHeader.textContent = 'Reset Password';
         return;
     }
