@@ -586,15 +586,12 @@ def load_contacts():
     try:
         if _pg_enabled():
             _pg_init_schema()
-            data = _pg_kv_get("contacts")
-            if isinstance(data, dict) and isinstance(data.get("contacts"), dict):
-                return {"version": 1, "contacts": data.get("contacts") or {}}
-            if isinstance(data, dict):
-                return {"version": 1, "contacts": data}
             return {"version": 1, "contacts": {}}
         if not CONTACTS_FILE.exists():
             return {"version": 1, "contacts": {}}
         raw = CONTACTS_FILE.read_text(encoding="utf-8")
+        if not raw.strip():
+            return {"version": 1, "contacts": {}}
         data = json.loads(raw)
         if not isinstance(data, dict):
             return {"version": 1, "contacts": {}}
@@ -608,8 +605,6 @@ def load_contacts():
 
 def save_contacts(contacts):
     if _pg_enabled():
-        _pg_init_schema()
-        _pg_kv_set("contacts", {"version": 1, "contacts": contacts})
         return
     tmp = CONTACTS_FILE.with_suffix(".json.tmp")
     payload = json.dumps({"version": 1, "contacts": contacts}, ensure_ascii=False)
