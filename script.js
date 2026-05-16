@@ -841,23 +841,37 @@ function clearBox(id) {
 }
 
 function fetchSession() {
-    return fetchJson('/api/session', { method: 'GET' })
-        .then(function(data) {
-            if (data.status !== 'success') {
+    var prev = CURRENT_SESSION;
+    var tries = 0;
+
+    function run() {
+        return fetchJson('/api/session', { method: 'GET' })
+            .then(function(data) {
+                if (!data || data.status !== 'success') {
+                    setLoggedOutUI();
+                    return null;
+                }
+                if (data.logged_in) {
+                    setLoggedInUI(data);
+                    return data;
+                }
                 setLoggedOutUI();
                 return null;
-            }
-            if (data.logged_in) {
-                setLoggedInUI(data);
-                return data;
-            }
-            setLoggedOutUI();
-            return null;
-        })
-        .catch(function() {
-            setLoggedOutUI();
-            return null;
-        });
+            })
+            .catch(function() {
+                if (tries < 1) {
+                    tries += 1;
+                    return run();
+                }
+                if (prev && prev.logged_in) {
+                    return prev;
+                }
+                setLoggedOutUI();
+                return null;
+            });
+    }
+
+    return run();
 }
 
 function otpBoxesValue(containerId) {
@@ -2326,6 +2340,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.history.pushState({ mode: m }, '', url.pathname + url.search);
             }
         } catch (e1) {}
+
+        if (!CURRENT_SESSION) {
+            fetchSession().then(function(s) {
+                showMode(m, s);
+                if (s && s.logged_in) {
+                    applyAdsForMode(m === 'special' ? 'special' : 'home');
+                }
+            });
+            return;
+        }
+
         showMode(m, CURRENT_SESSION);
         if (CURRENT_SESSION && CURRENT_SESSION.logged_in) {
             applyAdsForMode(m === 'special' ? 'special' : 'home');
@@ -2350,6 +2375,15 @@ document.addEventListener('DOMContentLoaded', function() {
     try {
         window.addEventListener('popstate', function() {
             var m = currentMode();
+            if (!CURRENT_SESSION) {
+                fetchSession().then(function(s) {
+                    showMode(m, s);
+                    if (s && s.logged_in) {
+                        applyAdsForMode(m === 'special' ? 'special' : 'home');
+                    }
+                });
+                return;
+            }
             showMode(m, CURRENT_SESSION);
             if (CURRENT_SESSION && CURRENT_SESSION.logged_in) {
                 applyAdsForMode(m === 'special' ? 'special' : 'home');
