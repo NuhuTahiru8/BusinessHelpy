@@ -643,6 +643,10 @@ def guess_content_type(file_path: Path):
         return "text/javascript; charset=utf-8"
     if ext == ".json":
         return "application/json; charset=utf-8"
+    if ext == ".txt":
+        return "text/plain; charset=utf-8"
+    if ext == ".xml":
+        return "application/xml; charset=utf-8"
     if ext == ".png":
         return "image/png"
     if ext in (".jpg", ".jpeg"):
