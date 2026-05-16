@@ -773,6 +773,24 @@ textarea {
     .admin-two-col {
         grid-template-columns: 1fr;
     }
+
+    body.mode-brandnames .inputs {
+        width: 100%;
+        align-items: stretch;
+    }
+
+    body.mode-brandnames #brandnamesBox {
+        width: 100%;
+    }
+
+    .brand-tabs {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .brand-tab-btn {
+        flex: 0 0 auto;
+    }
 }
 
 /* Styles for the template page */
