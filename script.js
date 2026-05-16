@@ -2301,6 +2301,62 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var mode = currentMode();
 
+    function modeForHref(href) {
+        var raw = String(href || '');
+        if (!raw) return null;
+        if (raw.indexOf('javascript:') === 0 || raw.indexOf('#') === 0) return null;
+        try {
+            var u = new URL(raw, window.location.origin);
+            var path = String(u.pathname || '').toLowerCase();
+            if (!(path.endsWith('/index.html') || path.endsWith('index.html') || path === '/' || path === '')) return null;
+            if (u.searchParams.has('mode')) return String(u.searchParams.get('mode') || '').toLowerCase();
+            return '';
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function navigateMode(nextMode) {
+        var m = String(nextMode || '').toLowerCase();
+        try {
+            var url = new URL(window.location.href);
+            if (m) url.searchParams.set('mode', m);
+            else url.searchParams.delete('mode');
+            if (window.history && window.history.pushState) {
+                window.history.pushState({ mode: m }, '', url.pathname + url.search);
+            }
+        } catch (e1) {}
+        showMode(m, CURRENT_SESSION);
+        if (CURRENT_SESSION && CURRENT_SESSION.logged_in) {
+            applyAdsForMode(m === 'special' ? 'special' : 'home');
+        }
+    }
+
+    var topnav = document.getElementById('myTopnav');
+    if (topnav) {
+        topnav.addEventListener('click', function(e) {
+            var t = e && e.target ? e.target : null;
+            if (!t) return;
+            if (t.tagName && String(t.tagName).toLowerCase() !== 'a' && t.closest) t = t.closest('a');
+            if (!t || !t.getAttribute) return;
+            var href = t.getAttribute('href') || '';
+            var m = modeForHref(href);
+            if (m === null) return;
+            if (e && e.preventDefault) e.preventDefault();
+            navigateMode(m);
+        });
+    }
+
+    try {
+        window.addEventListener('popstate', function() {
+            var m = currentMode();
+            showMode(m, CURRENT_SESSION);
+            if (CURRENT_SESSION && CURRENT_SESSION.logged_in) {
+                applyAdsForMode(m === 'special' ? 'special' : 'home');
+            }
+        });
+    } catch (e2) {}
+
     var pwToggles = document.querySelectorAll('.pw-toggle');
     if (pwToggles && pwToggles.forEach) {
         pwToggles.forEach(function(btn) {
