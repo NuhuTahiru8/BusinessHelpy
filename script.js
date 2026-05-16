@@ -2364,10 +2364,20 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!t) return;
             if (t.tagName && String(t.tagName).toLowerCase() !== 'a' && t.closest) t = t.closest('a');
             if (!t || !t.getAttribute) return;
+
+            var isResponsive = (' ' + String(topnav.className || '') + ' ').indexOf(' responsive ') !== -1;
+            function closeMenu() {
+                if (isResponsive) topnav.className = 'topnav';
+            }
+
             var href = t.getAttribute('href') || '';
             var m = modeForHref(href);
-            if (m === null) return;
+            if (m === null) {
+                closeMenu();
+                return;
+            }
             if (e && e.preventDefault) e.preventDefault();
+            closeMenu();
             navigateMode(m);
         });
     }
