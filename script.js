@@ -2365,8 +2365,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (t.tagName && String(t.tagName).toLowerCase() !== 'a' && t.closest) t = t.closest('a');
             if (!t || !t.getAttribute) return;
 
-            var isResponsive = (' ' + String(topnav.className || '') + ' ').indexOf(' responsive ') !== -1;
+            if (t.classList && t.classList.contains('icon')) {
+                return;
+            }
+
             function closeMenu() {
+                var isResponsive = (' ' + String(topnav.className || '') + ' ').indexOf(' responsive ') !== -1;
                 if (isResponsive) topnav.className = 'topnav';
             }
 
