@@ -2675,10 +2675,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     fetchSession().then(function(session) {
-        showMode(mode, session);
+        var activeMode = currentMode();
+        showMode(activeMode, session);
         Promise.all([loadAds(), loadTrustedBrands()]).then(function() {
             if (session && session.logged_in) {
-                applyAdsForMode(mode);
+                applyAdsForMode(activeMode === 'special' ? 'special' : 'home');
             }
             if (session && session.is_admin) {
                 var t1 = document.getElementById('adminHomeAdsText');
@@ -2694,7 +2695,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             updatePreviewMessage();
         });
-        if (mode === 'subscription') {
+        if (activeMode === 'subscription') {
             var params = new URLSearchParams(window.location.search || '');
             var ref = params.get('reference') || params.get('trxref') || '';
             if (ref) verifyPaystackReference(ref);
