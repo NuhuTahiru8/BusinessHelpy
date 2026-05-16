@@ -630,13 +630,14 @@ textarea {
 .otp-row {
     width: 100%;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
+    flex-wrap: wrap;
     gap: 8px;
     margin: 10px 0 14px;
 }
 
 .otp-box {
-    width: 44px;
+    width: 42px;
     height: 46px;
     border-radius: 12px;
     border: 1px solid #ddd;
