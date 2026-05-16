@@ -2369,20 +2369,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            function closeMenu() {
-                var isResponsive = (' ' + String(topnav.className || '') + ' ').indexOf(' responsive ') !== -1;
-                if (isResponsive) topnav.className = 'topnav';
-            }
-
-            var href = t.getAttribute('href') || '';
-            var m = modeForHref(href);
-            if (m === null) {
-                closeMenu();
-                return;
-            }
-            if (e && e.preventDefault) e.preventDefault();
-            closeMenu();
-            navigateMode(m);
+            var isResponsive = (' ' + String(topnav.className || '') + ' ').indexOf(' responsive ') !== -1;
+            if (isResponsive) topnav.className = 'topnav';
         });
     }
 
