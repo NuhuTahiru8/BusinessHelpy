@@ -782,6 +782,20 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 return
 
+    def do_HEAD(self):
+        try:
+            parsed = urllib.parse.urlparse(self.path)
+            if parsed.path.startswith("/api/"):
+                self.send_error(405)
+                return
+            return self.serve_static(parsed.path, head_only=True)
+        except Exception as e:
+            safe_print(f"Unhandled HEAD error: {repr(e)} path={self.path!r}")
+            try:
+                self.send_error(500)
+            except Exception:
+                return
+
     def do_POST(self):
         try:
             parsed = urllib.parse.urlparse(self.path)
@@ -2662,7 +2676,7 @@ class Handler(BaseHTTPRequestHandler):
 
         return self.send_json(404, {"status": "error", "message": "Not found"})
 
-    def serve_static(self, url_path):
+    def serve_static(self, url_path, head_only=False):
         if url_path == "/":
             url_path = "/index.html"
 
@@ -2672,6 +2686,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(302)
                 self.send_header("Location", "/index.html")
                 self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", "0")
                 self.end_headers()
                 return
 
@@ -2689,12 +2704,22 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
 
-        data = full_path.read_bytes()
+        try:
+            size = int(full_path.stat().st_size)
+        except Exception:
+            self.send_error(404)
+            return
+
         self.send_response(200)
         self.send_header("Content-Type", guess_content_type(full_path))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Content-Length", str(size))
         self.end_headers()
+
+        if head_only:
+            return
+
+        data = full_path.read_bytes()
         self.wfile.write(data)
 
 
