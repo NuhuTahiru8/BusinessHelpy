@@ -89,7 +89,13 @@ body {
 
 @media screen and (max-width: 600px) {
     .topnav.responsive {
-        position: relative;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        max-height: 100vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
     .topnav.responsive .icon {
         position: absolute;
