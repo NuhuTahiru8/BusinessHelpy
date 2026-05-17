@@ -2480,29 +2480,42 @@ document.addEventListener('DOMContentLoaded', function() {
         var statusEl = document.getElementById(statusId);
         var applying = false;
 
-        function applyClean() {
+        function updateStatus(raw, res) {
+            if (!statusEl) return;
+            var msg = 'Recipients: ' + res.valid.length;
+            if (res.duplicatesRemoved) msg += ' | Duplicates removed: ' + res.duplicatesRemoved;
+            if (res.invalid.length) {
+                msg += ' | Invalid: ' + res.invalid.length;
+                var preview = res.invalid.slice(0, 10).join(', ');
+                if (preview) msg += ' — ' + preview + (res.invalid.length > 10 ? ' ...' : '');
+            }
+            statusEl.textContent = msg;
+        }
+
+        function refreshStatusOnly() {
+            if (applying) return;
+            applying = true;
+            var raw = String(el.value || '');
+            var res = cleanRecipientsText(raw);
+            updateStatus(raw, res);
+            applying = false;
+        }
+
+        function normalizeNow() {
             if (applying) return;
             applying = true;
             var raw = String(el.value || '');
             var res = cleanRecipientsText(raw);
             var cleaned = res.valid.join(', ');
             if (raw !== cleaned) el.value = cleaned;
-            if (statusEl) {
-                var msg = 'Recipients: ' + res.valid.length;
-                if (res.duplicatesRemoved) msg += ' | Duplicates removed: ' + res.duplicatesRemoved;
-                if (res.invalid.length) {
-                    msg += ' | Invalid: ' + res.invalid.length;
-                    var preview = res.invalid.slice(0, 10).join(', ');
-                    if (preview) msg += ' — ' + preview + (res.invalid.length > 10 ? ' ...' : '');
-                }
-                statusEl.textContent = msg;
-            }
+            updateStatus(cleaned, res);
             applying = false;
         }
 
-        el.addEventListener('input', applyClean);
-        el.addEventListener('paste', function() { setTimeout(applyClean, 0); });
-        applyClean();
+        el.addEventListener('input', refreshStatusOnly);
+        el.addEventListener('blur', normalizeNow);
+        el.addEventListener('paste', function() { setTimeout(normalizeNow, 0); });
+        refreshStatusOnly();
     }
 
     bindDigitsOnly('loginUsername');
