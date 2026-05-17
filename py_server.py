@@ -2358,6 +2358,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(500, {"status": "error", "message": "Missing ARKESEL_API_KEY on the server"})
 
             results = []
+            successful = []
             for to in recipients:
                 params = {
                     "action": "send-sms",
@@ -2375,26 +2376,39 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:
                         parsed = raw
                     results.append({"to": to, "response": parsed})
+                    successful.append(to)
                 except urllib.error.HTTPError as e:
                     try:
                         body2 = e.read().decode("utf-8", errors="replace")
                     except Exception:
                         body2 = ""
-                    detail = f"HTTPError {getattr(e, 'code', '')} {getattr(e, 'reason', '')}: {body2[:800]}"
-                    safe_print(f"Arkesel send-sms-special failed for to={to}: {detail}")
-                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail, "raw_response": body2[:800]})
+                    results.append(
+                        {
+                            "to": to,
+                            "error": {
+                                "type": "http",
+                                "code": getattr(e, "code", None),
+                                "reason": str(getattr(e, "reason", "")),
+                                "body": body2[:800],
+                            },
+                        }
+                    )
+                    safe_print(f"Arkesel send-sms-special failed for to={to}: HTTPError {getattr(e, 'code', '')} {getattr(e, 'reason', '')}: {body2[:800]}")
+                    continue
                 except urllib.error.URLError as e:
                     detail = repr(e)
+                    results.append({"to": to, "error": {"type": "url", "detail": detail}})
                     safe_print(f"Arkesel send-sms-special failed for to={to}: {detail}")
-                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail})
+                    continue
                 except Exception as e:
                     detail = repr(e)
+                    results.append({"to": to, "error": {"type": "exception", "detail": detail}})
                     safe_print(f"Arkesel send-sms-special failed for to={to}: {detail}")
-                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail})
+                    continue
 
             now = utc_now_iso()
             with CONTACTS_LOCK:
-                for to in recipients:
+                for to in successful:
                     entry = CONTACTS.get(to)
                     if not isinstance(entry, dict):
                         entry = {
@@ -2435,7 +2449,7 @@ class Handler(BaseHTTPRequestHandler):
                 if isinstance(user, dict):
                     ensure_user_defaults(user)
                     if not bool(user.get("is_admin")) and not bool(user.get("is_free")):
-                        user["sms_credits"] = max(0, int(user.get("sms_credits") or 0) - recipient_count)
+                        user["sms_credits"] = max(0, int(user.get("sms_credits") or 0) - len(successful))
                         USERS[username] = user
                         STORE["users"] = USERS
                         STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
@@ -2479,7 +2493,20 @@ class Handler(BaseHTTPRequestHandler):
                         STORE["admin_templates"] = ADMIN_TEMPLATES
                         save_users_to_disk(STORE)
 
-            out = {"status": "success", "results": results, "template_saved": template_saved, "template_id": template_id}
+            sent_count = len(successful)
+            failed_count = max(0, len(recipients) - sent_count)
+            if sent_count == 0:
+                return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "sent": 0, "failed": failed_count, "results": results})
+
+            out = {
+                "status": "success",
+                "sent": sent_count,
+                "failed": failed_count,
+                "partial": failed_count > 0,
+                "results": results,
+                "template_saved": template_saved,
+                "template_id": template_id,
+            }
             if sms_balance is not None:
                 out["sms_balance"] = sms_balance
             return self.send_json(200, out)
@@ -2552,6 +2579,7 @@ class Handler(BaseHTTPRequestHandler):
             sender = sender_id
 
             results = []
+            successful = []
             for to in recipients:
                 params = {
                     "action": "send-sms",
@@ -2569,6 +2597,7 @@ class Handler(BaseHTTPRequestHandler):
                     except Exception:
                         parsed = raw
                     results.append({"to": to, "response": parsed})
+                    successful.append(to)
                 except urllib.error.HTTPError as e:
                     try:
                         body = e.read().decode("utf-8", errors="replace")
@@ -2576,21 +2605,33 @@ class Handler(BaseHTTPRequestHandler):
                         body = ""
                     if getattr(e, "code", None) == 422 and not body:
                         body = "Arkesel rejected the request. Check Sender ID and use country code numbers like 233XXXXXXXXX."
-                    detail = f"HTTPError {getattr(e, 'code', '')} {getattr(e, 'reason', '')}: {body[:800]}"
-                    safe_print(f"Arkesel send-sms failed for to={to}: {detail}")
-                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail, "raw_response": body[:800]})
+                    results.append(
+                        {
+                            "to": to,
+                            "error": {
+                                "type": "http",
+                                "code": getattr(e, "code", None),
+                                "reason": str(getattr(e, "reason", "")),
+                                "body": body[:800],
+                            },
+                        }
+                    )
+                    safe_print(f"Arkesel send-sms failed for to={to}: HTTPError {getattr(e, 'code', '')} {getattr(e, 'reason', '')}: {body[:800]}")
+                    continue
                 except urllib.error.URLError as e:
                     detail = repr(e)
+                    results.append({"to": to, "error": {"type": "url", "detail": detail}})
                     safe_print(f"Arkesel send-sms failed for to={to}: {detail}")
-                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail})
+                    continue
                 except Exception as e:
                     detail = repr(e)
+                    results.append({"to": to, "error": {"type": "exception", "detail": detail}})
                     safe_print(f"Arkesel send-sms failed for to={to}: {detail}")
-                    return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "detail": detail})
+                    continue
 
             now = utc_now_iso()
             with CONTACTS_LOCK:
-                for to in recipients:
+                for to in successful:
                     entry = CONTACTS.get(to)
                     if not isinstance(entry, dict):
                         entry = {
@@ -2630,8 +2671,7 @@ class Handler(BaseHTTPRequestHandler):
                 if isinstance(user, dict):
                     ensure_user_defaults(user)
                     if not bool(user.get("is_admin")) and not bool(user.get("is_free")):
-                        recipient_count = len(recipients)
-                        user["sms_credits"] = max(0, int(user.get("sms_credits") or 0) - recipient_count)
+                        user["sms_credits"] = max(0, int(user.get("sms_credits") or 0) - len(successful))
                         USERS[username] = user
                         STORE["users"] = USERS
                         STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
@@ -2673,7 +2713,20 @@ class Handler(BaseHTTPRequestHandler):
                         STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
                         save_users_to_disk(STORE)
 
-            out = {"status": "success", "results": results, "template_saved": template_saved, "template_id": template_id}
+            sent_count = len(successful)
+            failed_count = max(0, len(recipients) - sent_count)
+            if sent_count == 0:
+                return self.send_json(502, {"status": "error", "message": "Failed to send SMS", "sent": 0, "failed": failed_count, "results": results})
+
+            out = {
+                "status": "success",
+                "sent": sent_count,
+                "failed": failed_count,
+                "partial": failed_count > 0,
+                "results": results,
+                "template_saved": template_saved,
+                "template_id": template_id,
+            }
             if sms_balance is not None:
                 out["sms_balance"] = sms_balance
             return self.send_json(200, out)

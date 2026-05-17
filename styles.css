@@ -370,6 +370,55 @@ textarea {
     overflow-wrap: anywhere;
 }
 
+.send-summary {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 8px 0 10px;
+}
+
+.send-details {
+    margin-top: 10px;
+}
+
+.send-details summary {
+    cursor: pointer;
+    font-weight: 800;
+    font-size: 13px;
+}
+
+.send-fail-list {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.send-fail-item {
+    border: 1px solid rgba(220, 38, 38, 0.22);
+    background: rgba(220, 38, 38, 0.06);
+    border-radius: 12px;
+    padding: 10px;
+}
+
+.send-fail-to {
+    font-weight: 900;
+    font-size: 13px;
+}
+
+.send-fail-reason {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #444;
+    overflow-wrap: anywhere;
+}
+
+.send-fail-more {
+    font-weight: 900;
+    font-size: 12px;
+    color: #444;
+}
+
 .admin-title {
     margin-top: 14px;
     font-weight: 800;

@@ -551,6 +551,113 @@ function renderStatusInto(el, type, title, metaText) {
         '</div>';
 }
 
+function summarizeBulkSendResponse(res) {
+    var results = (res && Array.isArray(res.results)) ? res.results : [];
+    var failed = [];
+
+    for (var i = 0; i < results.length; i++) {
+        var it = results[i] || {};
+        var to = String(it.to || '');
+        if (!to) continue;
+        if (it.error) {
+            var e = it.error || {};
+            var msg = '';
+            if (e.type === 'http') {
+                msg = 'HTTP ' + String(e.code || '') + ' ' + String(e.reason || '');
+                if (e.body) msg += (msg ? ': ' : '') + String(e.body);
+            } else {
+                msg = String(e.detail || e.body || '');
+            }
+            msg = msg.trim() || 'Failed';
+            failed.push({ to: to, message: msg });
+            continue;
+        }
+        if (it.response && typeof it.response === 'object') {
+            var code = String(it.response.code || '').toLowerCase();
+            if (code && code !== 'ok') {
+                var msg2 = String(it.response.message || it.response.msg || 'Failed');
+                failed.push({ to: to, message: msg2 });
+            }
+        }
+    }
+
+    var sent = 0;
+    var failedCount = failed.length;
+    try { sent = Number(res && res.sent || 0) || 0; } catch (e2) { sent = 0; }
+    try {
+        var f0 = Number(res && res.failed);
+        if (!isNaN(f0)) failedCount = f0;
+    } catch (e3) {}
+
+    return {
+        sent: sent,
+        failed: failedCount,
+        partial: !!(res && res.partial),
+        failedItems: failed,
+        results: results
+    };
+}
+
+function renderBulkSendStatusInto(el, senderId, message, recipientPhone, res, opts) {
+    if (!el) return;
+    var sum = summarizeBulkSendResponse(res);
+
+    var type = 'error';
+    if (sum.sent > 0) type = 'success';
+
+    var title = 'Failed to send SMS';
+    if (sum.sent > 0 && sum.failed === 0) title = 'SMS sent successfully';
+    else if (sum.sent > 0 && sum.failed > 0) title = 'SMS sent (partial)';
+
+    var metaLines = [];
+    if (senderId) metaLines.push('From: ' + senderId);
+    var total = (sum.sent + sum.failed) || 0;
+    if (total) metaLines.push('Recipients: ' + String(total));
+    if (message) metaLines.push('Message: ' + message);
+
+    if (res && Object.prototype.hasOwnProperty.call(res, 'template_saved')) {
+        metaLines.push(res.template_saved ? 'Template: saved' : 'Template: already exists');
+    }
+
+    if (opts && Object.prototype.hasOwnProperty.call(opts, 'sms_balance')) {
+        metaLines.push('SMS balance: ' + String(opts.sms_balance || 0));
+    }
+
+    var meta = metaLines.join('\n');
+
+    var sentBadge = '<span class="badge approved">Sent: ' + escapeHtml(String(sum.sent)) + '</span>';
+    var failedBadge = '<span class="badge ' + (sum.failed > 0 ? 'pending' : 'approved') + '">Failed: ' + escapeHtml(String(sum.failed)) + '</span>';
+
+    var detailsHtml = '';
+    if (sum.failedItems && sum.failedItems.length) {
+        var lines = [];
+        var limit = Math.min(60, sum.failedItems.length);
+        for (var i = 0; i < limit; i++) {
+            var f = sum.failedItems[i];
+            lines.push(
+                '<div class="send-fail-item">' +
+                    '<div class="send-fail-to">' + escapeHtml(String(f.to || '')) + '</div>' +
+                    '<div class="send-fail-reason">' + escapeHtml(String(f.message || '')) + '</div>' +
+                '</div>'
+            );
+        }
+        var more = sum.failedItems.length > limit ? '<div class="send-fail-more">+' + escapeHtml(String(sum.failedItems.length - limit)) + ' more</div>' : '';
+        detailsHtml =
+            '<details class="send-details">' +
+                '<summary>View failed numbers</summary>' +
+                '<div class="send-fail-list">' + lines.join('') + more + '</div>' +
+            '</details>';
+    }
+
+    el.innerHTML =
+        '<div class="status-card ' + (type === 'success' ? 'success' : 'error') + '">' +
+            '<div class="status-title">' + escapeHtml(title) + '</div>' +
+            '<div class="send-summary">' + sentBadge + failedBadge + '</div>' +
+            '<div class="status-meta">' + escapeHtml(meta) + '</div>' +
+            detailsHtml +
+        '</div>';
+}
+
 function renderStatus(type, title, metaText) {
     renderStatusInto(document.getElementById('statusBox'), type, title, metaText);
 }
@@ -1468,23 +1575,33 @@ function sendSMS() {
                 sendBtn.textContent = 'Send';
             }
             if (res.status === 'success') {
-                var meta = 'From: ' + senderId + '\nTo: ' + recipientPhone + '\nMessage: ' + message;
-                if (Object.prototype.hasOwnProperty.call(res, 'template_saved')) {
-                    meta += res.template_saved ? '\nTemplate: saved' : '\nTemplate: already exists';
-                }
                 if (Object.prototype.hasOwnProperty.call(res, 'sms_balance')) {
-                    meta += '\nSMS balance: ' + String(res.sms_balance || 0);
                     if (CURRENT_SESSION && !CURRENT_SESSION.is_admin && !CURRENT_SESSION.is_free) {
                         CURRENT_SESSION.sms_credits = res.sms_balance;
                         renderSmsBalanceBadge(CURRENT_SESSION);
                     }
                 }
-                renderStatus('success', 'SMS sent successfully', meta);
+                if (Object.prototype.hasOwnProperty.call(res, 'sent') || Object.prototype.hasOwnProperty.call(res, 'failed') || Object.prototype.hasOwnProperty.call(res, 'partial') || Object.prototype.hasOwnProperty.call(res, 'results')) {
+                    renderBulkSendStatusInto(document.getElementById('statusBox'), senderId, message, recipientPhone, res, { sms_balance: res.sms_balance });
+                } else {
+                    var meta = 'From: ' + senderId + '\nTo: ' + recipientPhone + '\nMessage: ' + message;
+                    if (Object.prototype.hasOwnProperty.call(res, 'template_saved')) {
+                        meta += res.template_saved ? '\nTemplate: saved' : '\nTemplate: already exists';
+                    }
+                    if (Object.prototype.hasOwnProperty.call(res, 'sms_balance')) {
+                        meta += '\nSMS balance: ' + String(res.sms_balance || 0);
+                    }
+                    renderStatus('success', 'SMS sent successfully', meta);
+                }
                 return;
             }
             if (res.message === 'Not logged in') {
                 renderStatus('error', 'Session expired', 'Please login again.');
                 setLoggedOutUI();
+                return;
+            }
+            if (res && Object.prototype.hasOwnProperty.call(res, 'results')) {
+                renderBulkSendStatusInto(document.getElementById('statusBox'), senderId, message, recipientPhone, res, { sms_balance: res.sms_balance });
                 return;
             }
             var meta2 = (res.message || 'Unknown error') + (res.detail ? '\n' + res.detail : '') + (res.raw_response ? '\n' + res.raw_response : '');
@@ -1632,15 +1749,25 @@ function sendSpecialSMS() {
                 btn.textContent = 'Send';
             }
             if (res.status === 'success') {
-                var meta = 'From: ' + senderId + '\nTo: ' + recipientPhone + '\nMessage: ' + message;
                 if (Object.prototype.hasOwnProperty.call(res, 'sms_balance')) {
-                    meta += '\nSMS balance: ' + String(res.sms_balance || 0);
                     if (CURRENT_SESSION && !CURRENT_SESSION.is_admin && !CURRENT_SESSION.is_free) {
                         CURRENT_SESSION.sms_credits = res.sms_balance;
                         renderSmsBalanceBadge(CURRENT_SESSION);
                     }
                 }
-                renderStatusInto(statusEl, 'success', 'SMS sent successfully', meta);
+                if (Object.prototype.hasOwnProperty.call(res, 'sent') || Object.prototype.hasOwnProperty.call(res, 'failed') || Object.prototype.hasOwnProperty.call(res, 'partial') || Object.prototype.hasOwnProperty.call(res, 'results')) {
+                    renderBulkSendStatusInto(statusEl, senderId, message, recipientPhone, res, { sms_balance: res.sms_balance });
+                } else {
+                    var meta = 'From: ' + senderId + '\nTo: ' + recipientPhone + '\nMessage: ' + message;
+                    if (Object.prototype.hasOwnProperty.call(res, 'sms_balance')) {
+                        meta += '\nSMS balance: ' + String(res.sms_balance || 0);
+                    }
+                    renderStatusInto(statusEl, 'success', 'SMS sent successfully', meta);
+                }
+                return;
+            }
+            if (res && Object.prototype.hasOwnProperty.call(res, 'results')) {
+                renderBulkSendStatusInto(statusEl, senderId, message, recipientPhone, res, { sms_balance: res.sms_balance });
                 return;
             }
             renderStatusInto(statusEl, 'error', 'Failed to send SMS', res.message || 'Unknown error');
