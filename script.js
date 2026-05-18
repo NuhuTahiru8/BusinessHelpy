@@ -1,14 +1,14 @@
 var DEFAULT_PREVIEW_MESSAGE = "You are the girl I will die for. If I were to rate you on a scale of 1 to 10, you would be 11. - From Nuhu Tahiru";
 var CURRENT_SESSION = null;
-var PRICE_CURRENCY_LABEL = 'GHS';
+var PRICE_CURRENCY_LABEL = '₵';
 var PAYSTACK_FIXED_EMAIL = 'nuhuibntahir@gmail.com';
 var SUBSCRIPTION_PLANS = [
-    { sms: 25, price: 5 },
-    { sms: 50, price: 10 },
-    { sms: 100, price: 20 },
-    { sms: 250, price: 50 },
-    { sms: 500, price: 100 },
-    { sms: 700, price: 150 }
+    { sms: 25, price: 1 },
+    { sms: 50, price: 3 },
+    { sms: 100, price: 7 },
+    { sms: 250, price: 15 },
+    { sms: 500, price: 30 },
+    { sms: 700, price: 60 }
 ];
 var SELECTED_SUBSCRIPTION_SMS = null;
 var HOME_ADS = [];
@@ -1375,7 +1375,7 @@ function renderSubscriptionPlans() {
             '<div class="plan-card' + (isSelected ? ' selected' : '') + '" data-sms="' + escapeHtml(String(t.sms)) + '" data-price="' + escapeHtml(String(t.price)) + '">' +
                 '<div class="plan-top">' +
                     '<div class="plan-name">' + escapeHtml(title) + '</div>' +
-                    '<div class="plan-price">' + escapeHtml(PRICE_CURRENCY_LABEL + ' ' + String(t.price)) + '</div>' +
+                    '<div class="plan-price">' + escapeHtml(PRICE_CURRENCY_LABEL + String(t.price)) + '</div>' +
                 '</div>' +
                 '<div class="plan-meta">' + escapeHtml(meta) + '</div>' +
                 '<div class="plan-actions">' +

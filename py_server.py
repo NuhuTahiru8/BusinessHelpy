@@ -100,12 +100,12 @@ DEFAULT_SPECIAL_DAY_SENDER_IDS = []
 DEFAULT_ADMIN_TEMPLATES = []
 
 SUBSCRIPTION_PLANS = [
-    {"ghs": 5, "sms": 25},
-    {"ghs": 10, "sms": 50},
-    {"ghs": 20, "sms": 100},
-    {"ghs": 50, "sms": 250},
-    {"ghs": 100, "sms": 500},
-    {"ghs": 150, "sms": 700},
+    {"ghs": 1, "sms": 25},
+    {"ghs": 3, "sms": 50},
+    {"ghs": 7, "sms": 100},
+    {"ghs": 15, "sms": 250},
+    {"ghs": 30, "sms": 500},
+    {"ghs": 60, "sms": 700},
 ]
 PAYSTACK_FIXED_EMAIL = "nuhuibntahir@gmail.com"
 
@@ -118,7 +118,7 @@ OTP_RATE = {}
 OTP_RATE_WINDOW_SECONDS = 600
 OTP_RATE_LIMIT_PER_PHONE = 3
 OTP_RATE_LIMIT_PER_IP = 10
-NEW_ACCOUNT_FREE_SMS_CREDITS = 4
+NEW_ACCOUNT_FREE_SMS_CREDITS = 20
 
 def _is_valid_otp(code: str):
     s = str(code or "").strip()
@@ -720,12 +720,17 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
-    def read_json(self):
+    def read_body_bytes(self):
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             return None
-        raw = self.rfile.read(length) if length > 0 else b""
+        return self.rfile.read(length) if length > 0 else b""
+
+    def read_json(self):
+        raw = self.read_body_bytes()
+        if raw is None:
+            return None
         if not raw:
             return {}
         try:
@@ -1257,9 +1262,9 @@ class Handler(BaseHTTPRequestHandler):
             )
 
         if path == "/api/paystack/verify":
-            session = self.require_session()
-            if not session:
-                return
+            session = self.get_session()
+            session_username = str(session.get("username") or "") if isinstance(session, dict) else ""
+
             parsed = urllib.parse.urlparse(self.path)
             qs = urllib.parse.parse_qs(parsed.query or "")
             reference = str((qs.get("reference") or [""])[0]).strip()
@@ -1271,7 +1276,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(500, {"status": "error", "message": "Missing PAYSTACK_SECRET_KEY on the server"})
 
             url = "https://api.paystack.co/transaction/verify/" + urllib.parse.quote(reference)
-            req = urllib.request.Request(url, method="GET", headers={"Authorization": f"Bearer {secret_key}"})
+            req = urllib.request.Request(
+                url,
+                method="GET",
+                headers={
+                    "Authorization": f"Bearer {secret_key}",
+                    "Accept": "application/json",
+                    "User-Agent": "Mozilla/5.0",
+                },
+            )
             try:
                 with urllib.request.urlopen(req, timeout=20) as resp:
                     raw = resp.read().decode("utf-8", errors="replace")
@@ -1281,8 +1294,21 @@ class Handler(BaseHTTPRequestHandler):
                     body = e.read().decode("utf-8", errors="replace")
                 except Exception:
                     body = ""
-                return self.send_json(502, {"status": "error", "message": "Failed to verify payment", "detail": body[:800]})
+                safe_print(f"Paystack verify HTTPError code={getattr(e, 'code', '')} body={body[:800]}")
+                return self.send_json(
+                    502,
+                    {
+                        "status": "error",
+                        "message": "Failed to verify payment",
+                        "http_status": int(getattr(e, "code", 0) or 0),
+                        "detail": body[:800],
+                    },
+                )
+            except urllib.error.URLError as e:
+                safe_print(f"Paystack verify URLError: {repr(e)}")
+                return self.send_json(502, {"status": "error", "message": "Failed to reach Paystack", "detail": repr(e)})
             except Exception as e:
+                safe_print(f"Paystack verify error: {repr(e)}")
                 return self.send_json(502, {"status": "error", "message": "Failed to verify payment", "detail": repr(e)})
 
             if not isinstance(data, dict) or not data.get("status"):
@@ -1293,37 +1319,71 @@ class Handler(BaseHTTPRequestHandler):
 
             amount_pesewas = int(tx.get("amount") or 0)
             amount_ghs = amount_pesewas // 100
+
+            meta = tx.get("metadata") if isinstance(tx.get("metadata"), dict) else {}
+            meta_username = str(meta.get("username") or "").strip()
+            meta_sms = meta.get("sms")
+            meta_ghs = meta.get("ghs")
+
             sms = None
-            for p in SUBSCRIPTION_PLANS:
-                if int(p.get("ghs") or 0) == int(amount_ghs):
-                    sms = int(p.get("sms") or 0)
-                    break
+            if meta_sms is not None and str(meta_sms).strip() != "":
+                try:
+                    sms = int(meta_sms)
+                except Exception:
+                    sms = None
+
+            if sms is not None and meta_ghs is not None and str(meta_ghs).strip() != "":
+                try:
+                    if int(meta_ghs) != int(amount_ghs):
+                        sms = None
+                except Exception:
+                    sms = None
+
+            if sms is None:
+                for p in SUBSCRIPTION_PLANS:
+                    if int(p.get("ghs") or 0) == int(amount_ghs):
+                        sms = int(p.get("sms") or 0)
+                        break
+
             if not sms:
                 return self.send_json(400, {"status": "error", "message": "Unknown plan amount", "reference": reference})
 
-            username = str(session.get("username") or "")
+            credited_username = meta_username or session_username
+            if not credited_username:
+                return self.send_json(400, {"status": "error", "message": "Missing username (session expired and no Paystack metadata)", "reference": reference})
+
             credited_refs = STORE.get("paystack_credited_refs")
             if not isinstance(credited_refs, dict):
                 credited_refs = {}
 
             if reference in credited_refs:
-                with USERS_LOCK:
-                    user = USERS.get(username)
-                    if isinstance(user, dict):
-                        ensure_user_defaults(user)
-                        bal = int(user.get("sms_credits") or 0)
-                    else:
-                        bal = 0
-                return self.send_json(200, {"status": "success", "reference": reference, "credited_sms": 0, "sms_balance": bal, "already_credited": True})
+                info = credited_refs.get(reference) if isinstance(credited_refs.get(reference), dict) else {}
+                credited_username2 = str(info.get("username") or credited_username)
+                out = {"status": "success", "reference": reference, "credited_sms": 0, "already_credited": True, "credited_username": credited_username2}
+                if session_username and session_username == credited_username2:
+                    with USERS_LOCK:
+                        user = USERS.get(session_username)
+                        if isinstance(user, dict):
+                            ensure_user_defaults(user)
+                            out["sms_balance"] = int(user.get("sms_credits") or 0)
+                        else:
+                            out["sms_balance"] = 0
+                return self.send_json(200, out)
 
             with USERS_LOCK:
-                user = USERS.get(username)
+                user = USERS.get(credited_username)
                 if not isinstance(user, dict):
-                    return self.send_json(401, {"status": "error", "message": "Not logged in"})
+                    return self.send_json(404, {"status": "error", "message": "Account not found for this payment", "reference": reference})
                 ensure_user_defaults(user)
                 user["sms_credits"] = int(user.get("sms_credits") or 0) + int(sms)
-                USERS[username] = user
-                credited_refs[reference] = {"username": username, "sms": sms, "ghs": amount_ghs, "credited_at": utc_now_iso()}
+                USERS[credited_username] = user
+                credited_refs[reference] = {
+                    "username": credited_username,
+                    "sms": int(sms),
+                    "ghs": int(amount_ghs),
+                    "credited_at": utc_now_iso(),
+                    "source": "verify",
+                }
                 STORE["users"] = USERS
                 STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
                 STORE["admin_templates"] = ADMIN_TEMPLATES
@@ -1331,7 +1391,10 @@ class Handler(BaseHTTPRequestHandler):
                 save_users_to_disk(STORE)
                 bal2 = int(user.get("sms_credits") or 0)
 
-            return self.send_json(200, {"status": "success", "reference": reference, "credited_sms": sms, "sms_balance": bal2})
+            out2 = {"status": "success", "reference": reference, "credited_sms": int(sms), "credited_username": credited_username}
+            if session_username and session_username == credited_username:
+                out2["sms_balance"] = bal2
+            return self.send_json(200, out2)
 
         return self.send_json(404, {"status": "error", "message": "Not found"})
 
@@ -1402,6 +1465,100 @@ class Handler(BaseHTTPRequestHandler):
                 },
                 headers=[("Set-Cookie", self.build_cookie_header(sid, SESSION_TTL_SECONDS))],
             )
+
+        if path == "/api/paystack/webhook":
+            secret_key = (os.environ.get("PAYSTACK_SECRET_KEY") or "").strip()
+            if not secret_key:
+                return self.send_json(500, {"status": "error", "message": "Missing PAYSTACK_SECRET_KEY on the server"})
+
+            raw = self.read_body_bytes()
+            if raw is None:
+                return self.send_json(400, {"status": "error", "message": "Invalid body"})
+
+            sig = str(self.headers.get("X-Paystack-Signature") or "").strip()
+            expected = hmac.new(secret_key.encode("utf-8"), raw, hashlib.sha512).hexdigest()
+            if not sig or not hmac.compare_digest(sig, expected):
+                return self.send_json(401, {"status": "error", "message": "Invalid signature"})
+
+            try:
+                payload = json.loads(raw.decode("utf-8", errors="replace")) if raw else {}
+            except Exception:
+                payload = None
+            if not isinstance(payload, dict):
+                return self.send_json(400, {"status": "error", "message": "Invalid JSON"})
+
+            event = str(payload.get("event") or "").strip().lower()
+            if event not in ("charge.success",):
+                return self.send_json(200, {"status": "success"})
+
+            tx = payload.get("data") if isinstance(payload.get("data"), dict) else {}
+            if str(tx.get("status") or "").lower() != "success":
+                return self.send_json(200, {"status": "success"})
+
+            reference = str(tx.get("reference") or "").strip()
+            if not reference:
+                return self.send_json(200, {"status": "success"})
+
+            amount_pesewas = int(tx.get("amount") or 0)
+            amount_ghs = amount_pesewas // 100
+
+            meta = tx.get("metadata") if isinstance(tx.get("metadata"), dict) else {}
+            credited_username = str(meta.get("username") or "").strip()
+            meta_sms = meta.get("sms")
+            meta_ghs = meta.get("ghs")
+
+            sms = None
+            if meta_sms is not None and str(meta_sms).strip() != "":
+                try:
+                    sms = int(meta_sms)
+                except Exception:
+                    sms = None
+
+            if sms is not None and meta_ghs is not None and str(meta_ghs).strip() != "":
+                try:
+                    if int(meta_ghs) != int(amount_ghs):
+                        sms = None
+                except Exception:
+                    sms = None
+
+            if sms is None:
+                for p in SUBSCRIPTION_PLANS:
+                    if int(p.get("ghs") or 0) == int(amount_ghs):
+                        sms = int(p.get("sms") or 0)
+                        break
+
+            if not sms or not credited_username:
+                safe_print(f"Paystack webhook ignored reference={reference} username={credited_username!r} sms={sms!r} amount_ghs={amount_ghs}")
+                return self.send_json(200, {"status": "success"})
+
+            credited_refs = STORE.get("paystack_credited_refs")
+            if not isinstance(credited_refs, dict):
+                credited_refs = {}
+            if reference in credited_refs:
+                return self.send_json(200, {"status": "success"})
+
+            with USERS_LOCK:
+                user = USERS.get(credited_username)
+                if not isinstance(user, dict):
+                    safe_print(f"Paystack webhook: user not found reference={reference} username={credited_username!r}")
+                    return self.send_json(200, {"status": "success"})
+                ensure_user_defaults(user)
+                user["sms_credits"] = int(user.get("sms_credits") or 0) + int(sms)
+                USERS[credited_username] = user
+                credited_refs[reference] = {
+                    "username": credited_username,
+                    "sms": int(sms),
+                    "ghs": int(amount_ghs),
+                    "credited_at": utc_now_iso(),
+                    "source": "webhook",
+                }
+                STORE["users"] = USERS
+                STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
+                STORE["admin_templates"] = ADMIN_TEMPLATES
+                STORE["paystack_credited_refs"] = credited_refs
+                save_users_to_disk(STORE)
+
+            return self.send_json(200, {"status": "success"})
 
         if path == "/api/paystack/initialize":
             session = self.require_session()
