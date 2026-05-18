@@ -119,6 +119,31 @@ OTP_RATE_WINDOW_SECONDS = 600
 OTP_RATE_LIMIT_PER_PHONE = 3
 OTP_RATE_LIMIT_PER_IP = 10
 NEW_ACCOUNT_FREE_SMS_CREDITS = 20
+DAILY_FREE_TRIAL_SMS = 10
+
+def utc_today_ymd():
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+def trial_daily_reset_if_needed(user: dict):
+    if not isinstance(user, dict):
+        return False
+    if bool(user.get("is_admin")):
+        return False
+    if bool(user.get("is_free")):
+        return False
+    if bool(user.get("has_purchased")):
+        return False
+    today = utc_today_ymd()
+    prev = str(user.get("trial_daily_ymd") or "")
+    if prev == today:
+        return False
+    user["trial_daily_ymd"] = today
+    user["trial_daily_used"] = 0
+    return True
+
+def trial_daily_remaining(user: dict):
+    used = int(user.get("trial_daily_used") or 0) if isinstance(user, dict) else 0
+    return max(0, int(DAILY_FREE_TRIAL_SMS) - used)
 
 def _is_valid_otp(code: str):
     s = str(code or "").strip()
@@ -537,6 +562,32 @@ if not bool(STORE.get("free_flag_migrated_v1")):
         STORE["users"] = USERS
     save_users_to_disk(STORE)
 
+if not bool(STORE.get("has_purchased_migrated_v1")):
+    credited_refs = STORE.get("paystack_credited_refs")
+    purchased_users = set()
+    if isinstance(credited_refs, dict):
+        for info in credited_refs.values():
+            if not isinstance(info, dict):
+                continue
+            uname = str(info.get("username") or "").strip()
+            if uname:
+                purchased_users.add(uname)
+
+    _p_changed = False
+    for _uname, _u in USERS.items():
+        if not isinstance(_u, dict):
+            continue
+        ensure_user_defaults(_u)
+        if _uname in purchased_users and not bool(_u.get("has_purchased")):
+            _u["has_purchased"] = True
+            USERS[_uname] = _u
+            _p_changed = True
+
+    STORE["has_purchased_migrated_v1"] = True
+    if _p_changed:
+        STORE["users"] = USERS
+    save_users_to_disk(STORE)
+
 
 def append_sms_log(entry: dict):
     try:
@@ -565,6 +616,15 @@ def ensure_user_defaults(user: dict):
         changed = True
     if "is_free" not in user:
         user["is_free"] = False
+        changed = True
+    if "has_purchased" not in user:
+        user["has_purchased"] = False
+        changed = True
+    if "trial_daily_ymd" not in user:
+        user["trial_daily_ymd"] = ""
+        changed = True
+    if "trial_daily_used" not in user:
+        user["trial_daily_used"] = 0
         changed = True
     if "templates" not in user or not isinstance(user.get("templates"), list):
         user["templates"] = []
@@ -1375,6 +1435,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not isinstance(user, dict):
                     return self.send_json(404, {"status": "error", "message": "Account not found for this payment", "reference": reference})
                 ensure_user_defaults(user)
+                user["has_purchased"] = True
                 user["sms_credits"] = int(user.get("sms_credits") or 0) + int(sms)
                 USERS[credited_username] = user
                 credited_refs[reference] = {
@@ -1543,6 +1604,7 @@ class Handler(BaseHTTPRequestHandler):
                     safe_print(f"Paystack webhook: user not found reference={reference} username={credited_username!r}")
                     return self.send_json(200, {"status": "success"})
                 ensure_user_defaults(user)
+                user["has_purchased"] = True
                 user["sms_credits"] = int(user.get("sms_credits") or 0) + int(sms)
                 USERS[credited_username] = user
                 credited_refs[reference] = {
@@ -2505,7 +2567,25 @@ class Handler(BaseHTTPRequestHandler):
                 ensure_user_defaults(user)
                 is_admin = bool(user.get("is_admin"))
                 is_free = bool(user.get("is_free"))
-                if not is_admin and not is_free:
+                has_purchased = bool(user.get("has_purchased"))
+
+                if not is_admin and not is_free and not has_purchased:
+                    changed = trial_daily_reset_if_needed(user)
+                    if changed:
+                        USERS[username] = user
+                        STORE["users"] = USERS
+                        STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
+                        STORE["admin_templates"] = ADMIN_TEMPLATES
+                        save_users_to_disk(STORE)
+
+                    if recipient_count > 1:
+                        return self.send_json(400, {"status": "error", "message": "Free plan: you can only send to 1 contact at a time (no bulk)."})
+
+                    remaining = trial_daily_remaining(user)
+                    if remaining < 1:
+                        return self.send_json(400, {"status": "error", "message": "Free plan: daily limit reached (10/day). Try again tomorrow or top up."})
+
+                if not is_admin and not is_free and has_purchased:
                     bal = int(user.get("sms_credits") or 0)
                     if bal < recipient_count:
                         return self.send_json(400, {"status": "error", "message": "Insufficient SMS balance", "sms_balance": bal})
@@ -2605,7 +2685,11 @@ class Handler(BaseHTTPRequestHandler):
                 user = USERS.get(username)
                 if isinstance(user, dict):
                     ensure_user_defaults(user)
-                    if not bool(user.get("is_admin")) and not bool(user.get("is_free")):
+                    is_admin = bool(user.get("is_admin"))
+                    is_free = bool(user.get("is_free"))
+                    has_purchased = bool(user.get("has_purchased"))
+
+                    if (not is_admin) and (not is_free) and has_purchased:
                         user["sms_credits"] = max(0, int(user.get("sms_credits") or 0) - len(successful))
                         USERS[username] = user
                         STORE["users"] = USERS
@@ -2613,6 +2697,15 @@ class Handler(BaseHTTPRequestHandler):
                         STORE["admin_templates"] = ADMIN_TEMPLATES
                         save_users_to_disk(STORE)
                         sms_balance = int(user.get("sms_credits") or 0)
+
+                    if (not is_admin) and (not is_free) and (not has_purchased):
+                        trial_daily_reset_if_needed(user)
+                        user["trial_daily_used"] = min(int(DAILY_FREE_TRIAL_SMS), int(user.get("trial_daily_used") or 0) + len(successful))
+                        USERS[username] = user
+                        STORE["users"] = USERS
+                        STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
+                        STORE["admin_templates"] = ADMIN_TEMPLATES
+                        save_users_to_disk(STORE)
 
             template_saved = False
             template_id = None
@@ -2707,6 +2800,23 @@ class Handler(BaseHTTPRequestHandler):
                 ensure_user_defaults(user)
                 is_admin = bool(user.get("is_admin"))
                 is_free = bool(user.get("is_free"))
+                has_purchased = bool(user.get("has_purchased"))
+
+                if not is_admin and not is_free and not has_purchased:
+                    changed = trial_daily_reset_if_needed(user)
+                    if changed:
+                        USERS[username] = user
+                        STORE["users"] = USERS
+                        STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
+                        save_users_to_disk(STORE)
+
+                    if len(recipients) > 1:
+                        return self.send_json(400, {"status": "error", "message": "Free plan: you can only send to 1 contact at a time (no bulk)."})
+
+                    remaining = trial_daily_remaining(user)
+                    if remaining < 1:
+                        return self.send_json(400, {"status": "error", "message": "Free plan: daily limit reached (10/day). Try again tomorrow or top up."})
+
                 allowed = False
                 pending = False
                 for s in (user.get("sender_ids") or []):
@@ -2827,13 +2937,25 @@ class Handler(BaseHTTPRequestHandler):
                 user = USERS.get(username)
                 if isinstance(user, dict):
                     ensure_user_defaults(user)
-                    if not bool(user.get("is_admin")) and not bool(user.get("is_free")):
+                    is_admin = bool(user.get("is_admin"))
+                    is_free = bool(user.get("is_free"))
+                    has_purchased = bool(user.get("has_purchased"))
+
+                    if (not is_admin) and (not is_free) and has_purchased:
                         user["sms_credits"] = max(0, int(user.get("sms_credits") or 0) - len(successful))
                         USERS[username] = user
                         STORE["users"] = USERS
                         STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
                         save_users_to_disk(STORE)
                         sms_balance = int(user.get("sms_credits") or 0)
+
+                    if (not is_admin) and (not is_free) and (not has_purchased):
+                        trial_daily_reset_if_needed(user)
+                        user["trial_daily_used"] = min(int(DAILY_FREE_TRIAL_SMS), int(user.get("trial_daily_used") or 0) + len(successful))
+                        USERS[username] = user
+                        STORE["users"] = USERS
+                        STORE["special_day_sender_ids"] = SPECIAL_DAY_SENDER_IDS
+                        save_users_to_disk(STORE)
 
             template_saved = False
             template_id = None
